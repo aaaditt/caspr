@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import wave
 from pathlib import Path
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16_000
 
@@ -16,6 +19,60 @@ def meter_level(block: np.ndarray) -> float:
         return 0.0
     rms = float(np.sqrt(np.mean(np.square(block, dtype=np.float64))))
     return min(1.0, rms * np.sqrt(2.0))
+
+
+class Recorder:
+    """Collects mic audio between start() and stop(). One recording at a time.
+
+    on_level (optional) is called from the audio callback thread with a 0..1
+    meter value per block — keep it cheap and thread-safe (e.g. emit a Qt signal).
+    """
+
+    MAX_SECONDS = 120  # safety cap so a stuck key can't grow memory forever
+
+    def __init__(self, device: int | None = None, on_level=None):
+        self._device = device
+        self._on_level = on_level
+        self._blocks: list[np.ndarray] = []
+        self._stream = None
+
+    def start(self) -> None:
+        import sounddevice as sd  # deferred so unit tests don't need PortAudio
+
+        if self._stream is not None:
+            return
+        self._blocks = []
+        max_blocks = self.MAX_SECONDS * 10  # ~100ms blocks
+
+        def callback(indata, frames, time_info, status):
+            if status:
+                log.warning("audio callback status: %s", status)
+            if len(self._blocks) < max_blocks:
+                self._blocks.append(indata[:, 0].copy())
+            if self._on_level is not None:
+                self._on_level(meter_level(indata[:, 0]))
+
+        self._stream = sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype="float32",
+            blocksize=SAMPLE_RATE // 10,
+            device=self._device,
+            callback=callback,
+        )
+        self._stream.start()
+
+    def stop(self) -> np.ndarray:
+        if self._stream is None:
+            return np.zeros(0, dtype=np.float32)
+        self._stream.stop()
+        self._stream.close()
+        self._stream = None
+        if not self._blocks:
+            return np.zeros(0, dtype=np.float32)
+        audio = np.concatenate(self._blocks)
+        self._blocks = []
+        return audio
 
 
 def load_wav_mono16k(path: Path | str) -> np.ndarray:
