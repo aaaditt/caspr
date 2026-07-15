@@ -120,7 +120,7 @@ class AppController(QObject):
             if not result.text:
                 self._set_state("idle", "didn't catch that")
                 return
-            inject.paste_text(result.text)
+            inject.inject_text(result.text, self.cfg.injection)
             total_s = time.perf_counter() - t0
             log.info(
                 "dictation: %.1fs audio | infer %.2fs | total %.2fs | %r",

@@ -36,7 +36,7 @@ caspr/
 ├── audio.py         # sounddevice InputStream, 16kHz mono float32, level meter
 ├── stt.py           # faster-whisper: large-v3-turbo int8 CUDA, fallback small int8 CPU
 ├── cleanup.py       # Groq: fillers, punctuation, self-corrections, tone profiles
-├── inject.py        # clipboard-swap paste: save → set → Ctrl+V → restore
+├── inject.py        # SendInput unicode typing (default); clipboard-swap Ctrl+V fallback
 ├── context.py       # foreground exe → app/tone profile
 ├── dictionary.py    # personal vocab → Whisper initial_prompt + cleanup prompt
 ├── history.py       # SQLite: raw, cleaned, app, timestamps, stage latencies
@@ -45,8 +45,9 @@ caspr/
 
 **Core flow:** hotkey down → record (overlay shows live level) → hotkey up →
 Whisper (audio stays in memory, never leaves the machine) → active-app tone profile →
-Groq cleanup (3s timeout → fall back to raw text) → clipboard-swap paste →
-history row → overlay fades.
+Groq cleanup (3s timeout → fall back to raw text) → SendInput unicode injection
+(clipboard never touched; revised from clipboard-swap after an e2e-observed
+restore race) → history row → overlay fades.
 
 **Latency target:** text lands ≤ ~1.5s after key release. Every stage timed and logged.
 

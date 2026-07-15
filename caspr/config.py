@@ -11,10 +11,13 @@ from pathlib import Path
 @dataclass
 class Config:
     hotkey: str = "right ctrl"
-    model: str = "large-v3-turbo"
+    # "small" hits ~0.55s/clip on a GTX 1650 (int8_float16, greedy); "large-v3-turbo"
+    # is ~1.76s if accuracy matters more than latency.
+    model: str = "small"
     device: str = "auto"  # auto | cuda | cpu
     language: str | None = None  # None = let Whisper auto-detect
     input_device: int | None = None  # None = system default microphone
+    injection: str = "type"  # "type" (SendInput unicode) | "clipboard" (swap + Ctrl+V)
     dictionary: list[str] = field(default_factory=list)
 
 

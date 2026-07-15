@@ -70,8 +70,14 @@ class Transcriber:
         initial_prompt: str | None = None,
     ) -> Transcription:
         t0 = time.perf_counter()
+        # Greedy decoding: ~2-3x faster than the beam_size=5 default and fine for
+        # dictation. Not conditioning on previous text avoids repetition loops.
         segments, info = self._model.transcribe(
-            audio, language=language, initial_prompt=initial_prompt
+            audio,
+            language=language,
+            initial_prompt=initial_prompt,
+            beam_size=1,
+            condition_on_previous_text=False,
         )
         text = " ".join(s.text.strip() for s in segments).strip()
         return Transcription(text, info.language, time.perf_counter() - t0)
