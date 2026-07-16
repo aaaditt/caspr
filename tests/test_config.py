@@ -5,7 +5,7 @@ from caspr.config import Config, default_config_path, load_config, save_config
 
 def test_defaults():
     cfg = Config()
-    assert cfg.hotkey == "right ctrl"
+    assert cfg.hotkey == "ctrl+windows"
     assert cfg.model == "small"
     assert cfg.device == "auto"
     assert cfg.language is None

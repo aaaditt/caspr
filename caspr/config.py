@@ -10,7 +10,8 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    hotkey: str = "right ctrl"
+    # Chord parts joined by "+" (e.g. "ctrl+windows") or a single key name.
+    hotkey: str = "ctrl+windows"
     # "small" hits ~0.55s/clip on a GTX 1650 (int8_float16, greedy); "large-v3-turbo"
     # is ~1.76s if accuracy matters more than latency.
     model: str = "small"
