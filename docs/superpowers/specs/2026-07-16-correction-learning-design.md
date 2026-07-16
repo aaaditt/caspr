@@ -66,6 +66,28 @@ next dictation (no restart).
 - Live verification: dictate a name → pill lingers with red word → right-click add
   → next dictation recognizes/replaces correctly.
 
+## Launcher & footprint (added on Aadit's review)
+
+- `caspr` typed in any terminal launches the app **detached** — no console window,
+  terminal immediately free. Mechanism: `[project.gui-scripts] caspr-app` entry
+  (windowed, no console) + a `caspr.cmd` shim installed to
+  `%LOCALAPPDATA%\Microsoft\WindowsApps` (already on PATH) that `start`s it.
+  `uv run caspr` remains the dev mode with console logs.
+- `caspr --startup on|off` creates/removes a shortcut in shell:startup so the app
+  is always resident: invisible except the tray dot, activates on right-Ctrl.
+- Single-instance lock already prevents duplicates; relaunching shows a message.
+- Footprint honesty: ~300–500MB RAM (PySide6 + runtime) with model weights mostly
+  in VRAM (~500MB of the 4GB card). Idle CPU ≈ 0%.
+
+## Visual design (added on Aadit's review)
+
+Wispr-like: minimal, rounded, calm. One QSS stylesheet shared by all windows.
+- Pill: bottom-center above taskbar, frameless, translucent rounded capsule,
+  dark charcoal bg, white text, subtle drop shadow; mic level as a soft pulsing
+  dot; flagged words tinted red — no chrome, no buttons.
+- Popup & history: frameless-ish light/dark cards, 12px radii, Segoe UI Variable,
+  generous padding, one accent color (#4a90d9 family), no menu bars.
+
 ## Out of scope (this feature)
 
 Groq cleanup (M2 proper, needs API key), per-app tone (M4), editing text already
