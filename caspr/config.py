@@ -19,6 +19,9 @@ class Config:
     input_device: int | None = None  # None = system default microphone
     injection: str = "type"  # "type" (SendInput unicode) | "clipboard" (swap + Ctrl+V)
     dictionary: list[str] = field(default_factory=list)
+    replacements: dict[str, str] = field(default_factory=dict)  # wrong word -> correct
+    flag_zipf_threshold: float = 3.0  # words rarer than this get flagged in the UI
+    pill_linger_s: float = 6.0  # 0 disables the post-dictation pill
 
 
 def default_config_path() -> Path:

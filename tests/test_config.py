@@ -38,6 +38,20 @@ def test_load_corrupt_file_returns_defaults(tmp_path):
     assert load_config(path) == Config()
 
 
+def test_learning_defaults():
+    cfg = Config()
+    assert cfg.replacements == {}
+    assert cfg.flag_zipf_threshold == 3.0
+    assert cfg.pill_linger_s == 6.0
+
+
+def test_replacements_roundtrip(tmp_path):
+    path = tmp_path / "config.json"
+    cfg = Config(replacements={"Adit": "Aadit"})
+    save_config(cfg, path)
+    assert load_config(path).replacements == {"Adit": "Aadit"}
+
+
 def test_default_config_path_is_under_appdata():
     path = default_config_path()
     assert path.name == "config.json"
