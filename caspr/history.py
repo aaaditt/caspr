@@ -6,6 +6,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from .config import default_config_path
@@ -30,6 +31,13 @@ class Entry:
     final_text: str
     infer_s: float
     total_s: float
+
+
+@dataclass
+class Stats:
+    today_count: int
+    total_words: int
+    avg_total_s: float
 
 
 def default_history_path() -> Path:
@@ -64,6 +72,17 @@ class History:
                 (limit,),
             ).fetchall()
         return [Entry(*row) for row in rows]
+
+    def stats(self) -> Stats:
+        midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        with self._connect() as con:
+            today_count = con.execute(
+                "SELECT COUNT(*) FROM dictations WHERE ts >= ?", (midnight.timestamp(),)
+            ).fetchone()[0]
+            rows = con.execute("SELECT final_text, total_s FROM dictations").fetchall()
+        total_words = sum(len(text.split()) for text, _ in rows)
+        avg_total_s = sum(t for _, t in rows) / len(rows) if rows else 0.0
+        return Stats(today_count, total_words, avg_total_s)
 
     def delete(self, entry_id: int) -> None:
         with self._connect() as con:
