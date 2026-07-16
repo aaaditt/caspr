@@ -1,5 +1,22 @@
+from pathlib import Path
+
+from caspr.__main__ import _choose_shim_dir
 from caspr.app import AppController
 from caspr.config import Config, load_config
+
+
+def test_shim_prefers_local_bin_when_on_path():
+    local_bin = Path.home() / ".local" / "bin"
+    assert _choose_shim_dir(f"C:\\foo;{local_bin}\\;C:\\bar") == local_bin
+
+
+def test_shim_accepts_windowsapps_when_local_bin_absent():
+    wa = Path.home() / "AppData" / "Local" / "Microsoft" / "WindowsApps"
+    assert _choose_shim_dir(f"C:\\foo;{str(wa).upper()}") == wa
+
+
+def test_shim_defaults_to_local_bin_when_nothing_matches():
+    assert _choose_shim_dir("C:\\foo;C:\\bar") == Path.home() / ".local" / "bin"
 
 
 def _controller(tmp_path):
