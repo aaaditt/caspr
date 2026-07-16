@@ -20,8 +20,11 @@ from PySide6.QtCore import QObject, Signal
 
 from . import inject
 from .audio import SAMPLE_RATE, Recorder
-from .config import Config
+from .config import Config, save_config
 from .dictionary import build_initial_prompt
+from .history import History
+from .replacements import apply_replacements
+from .spellcheck import flag_unknown_words
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +35,14 @@ class AppController(QObject):
     # state name, human-readable detail
     state_changed = Signal(str, str)
     input_level = Signal(float)
+    # final injected text, flagged spans (list[tuple[int, int]])
+    dictation_done = Signal(str, object)
 
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, config_path=None, history_path=None):
         super().__init__()
         self.cfg = cfg
+        self.config_path = config_path
+        self.history = History(history_path)
         self._transcriber = None
         self._recorder = Recorder(cfg.input_device, on_level=self.input_level.emit)
         self._executor = ThreadPoolExecutor(max_workers=1)
@@ -55,6 +62,31 @@ class AppController(QObject):
         self.paused = not self.paused
         self._set_state(self._state, "paused" if self.paused else "")
 
+    # -- learning (explicit user actions only) -----------------------------
+
+    def learn_term(self, term: str) -> None:
+        term = term.strip()
+        if term and term not in self.cfg.dictionary:
+            self.cfg.dictionary.append(term)
+            save_config(self.cfg, self.config_path)
+            log.info("dictionary += %r", term)
+
+    def learn_replacement(self, wrong: str, right: str) -> None:
+        wrong, right = wrong.strip(), right.strip()
+        if wrong and right:
+            self.cfg.replacements[wrong] = right
+            save_config(self.cfg, self.config_path)
+            log.info("replacement %r -> %r", wrong, right)
+
+    def forget_term(self, term: str) -> None:
+        if term in self.cfg.dictionary:
+            self.cfg.dictionary.remove(term)
+            save_config(self.cfg, self.config_path)
+
+    def forget_replacement(self, wrong: str) -> None:
+        if self.cfg.replacements.pop(wrong, None) is not None:
+            save_config(self.cfg, self.config_path)
+
     def _load_model(self) -> None:
         from .stt import Transcriber  # heavy import off the main thread
 
@@ -63,6 +95,7 @@ class AppController(QObject):
             # First CUDA inference compiles kernels; warm up on silence now so
             # the first real dictation isn't slow.
             transcriber.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
+            flag_unknown_words("warmup", [])  # wordfreq loads its data lazily
             self._transcriber = transcriber
             self._set_state("idle", f"{self.cfg.model} on {transcriber.device}")
         except Exception as e:
@@ -120,13 +153,19 @@ class AppController(QObject):
             if not result.text:
                 self._set_state("idle", "didn't catch that")
                 return
-            inject.inject_text(result.text, self.cfg.injection)
+            final = apply_replacements(result.text, self.cfg.replacements)
+            inject.inject_text(final, self.cfg.injection)
             total_s = time.perf_counter() - t0
+            spans = flag_unknown_words(
+                final, self.cfg.dictionary, self.cfg.flag_zipf_threshold
+            )
+            self.history.add(result.text, final, result.infer_s, total_s)
             log.info(
                 "dictation: %.1fs audio | infer %.2fs | total %.2fs | %r",
-                audio_s, result.infer_s, total_s, result.text[:80],
+                audio_s, result.infer_s, total_s, final[:80],
             )
-            self._set_state("idle", result.text[:60])
+            self._set_state("idle", final[:60])
+            self.dictation_done.emit(final, spans)
         except Exception as e:
             log.exception("pipeline failed")
             self._set_state("idle", f"error: {e}")
