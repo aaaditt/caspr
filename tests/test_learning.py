@@ -21,3 +21,13 @@ def test_learn_replacement_persists(tmp_path):
     c, path = _controller(tmp_path)
     c.learn_replacement("Adit", "Aadit")
     assert load_config(path).replacements == {"Adit": "Aadit"}
+
+
+def test_forget_term_and_rule(tmp_path):
+    c, path = _controller(tmp_path)
+    c.learn_term("Aadit")
+    c.learn_replacement("Adit", "Aadit")
+    c.forget_term("Aadit")
+    c.forget_replacement("Adit")
+    cfg = load_config(path)
+    assert cfg.dictionary == [] and cfg.replacements == {}

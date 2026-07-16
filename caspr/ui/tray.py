@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction, QBrush, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..app import AppController
+from .history_view import HistoryWindow
 
 _STATE_COLORS = {
     "loading": "#95a5a6",
@@ -45,6 +46,10 @@ class Tray(QSystemTrayIcon):
         self._pause_action.triggered.connect(self._toggle_pause)
         menu.addAction(self._pause_action)
 
+        history_action = QAction("History && dictionary", menu)
+        history_action.triggered.connect(self._show_history)
+        menu.addAction(history_action)
+
         quit_action = QAction("Quit", menu)
         quit_action.triggered.connect(app.quit)
         menu.addAction(quit_action)
@@ -52,6 +57,13 @@ class Tray(QSystemTrayIcon):
         self.setContextMenu(menu)
         self.setToolTip("caspr-flow — loading model…")
         controller.state_changed.connect(self._on_state)
+
+    def _show_history(self) -> None:
+        if not hasattr(self, "_history_window"):
+            self._history_window = HistoryWindow(self._controller)
+        self._history_window.show()
+        self._history_window.raise_()
+        self._history_window.activateWindow()
 
     def _toggle_pause(self) -> None:
         self._controller.toggle_pause()
