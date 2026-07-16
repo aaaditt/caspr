@@ -13,7 +13,7 @@ from .style import BG_DARK, FG_LIGHT, flagged_html
 class Pill(QWidget):
     expand_requested = Signal(str)
 
-    def __init__(self, linger_s: float = 6.0):
+    def __init__(self, cfg):
         super().__init__(
             None,
             Qt.WindowType.FramelessWindowHint
@@ -23,7 +23,7 @@ class Pill(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self._linger_ms = int(linger_s * 1000)
+        self._cfg = cfg  # read pill_linger_s live so Settings changes apply instantly
         self._text = ""
         self._label = QLabel()
         self._label.setStyleSheet(
@@ -36,6 +36,10 @@ class Pill(QWidget):
         self._hide_timer = QTimer(self)
         self._hide_timer.setSingleShot(True)
         self._hide_timer.timeout.connect(self.hide)
+
+    @property
+    def _linger_ms(self) -> int:
+        return int(self._cfg.pill_linger_s * 1000)
 
     # -- slots (connected to AppController signals) -------------------------
 

@@ -6,8 +6,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QBrush, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
+from collections.abc import Callable
+
 from ..app import AppController
-from .history_view import HistoryWindow
 
 _STATE_COLORS = {
     "loading": "#95a5a6",
@@ -31,9 +32,15 @@ def _dot_icon(color: str) -> QIcon:
 
 
 class Tray(QSystemTrayIcon):
-    def __init__(self, controller: AppController, app: QApplication):
+    def __init__(
+        self,
+        controller: AppController,
+        app: QApplication,
+        on_open: Callable[[], None] | None = None,
+    ):
         super().__init__(_dot_icon(_STATE_COLORS["loading"]))
         self._controller = controller
+        self._on_open = on_open
         self._icons = {state: _dot_icon(color) for state, color in _STATE_COLORS.items()}
 
         menu = QMenu()
@@ -46,9 +53,11 @@ class Tray(QSystemTrayIcon):
         self._pause_action.triggered.connect(self._toggle_pause)
         menu.addAction(self._pause_action)
 
-        history_action = QAction("History && dictionary", menu)
-        history_action.triggered.connect(self._show_history)
-        menu.addAction(history_action)
+        if on_open is not None:
+            open_action = QAction("Open caspr", menu)
+            open_action.triggered.connect(on_open)
+            menu.addAction(open_action)
+            self.activated.connect(self._on_activated)
 
         quit_action = QAction("Quit", menu)
         quit_action.triggered.connect(app.quit)
@@ -58,12 +67,9 @@ class Tray(QSystemTrayIcon):
         self.setToolTip("caspr-flow — loading model…")
         controller.state_changed.connect(self._on_state)
 
-    def _show_history(self) -> None:
-        if not hasattr(self, "_history_window"):
-            self._history_window = HistoryWindow(self._controller)
-        self._history_window.show()
-        self._history_window.raise_()
-        self._history_window.activateWindow()
+    def _on_activated(self, reason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.Trigger and self._on_open:
+            self._on_open()
 
     def _toggle_pause(self) -> None:
         self._controller.toggle_pause()
