@@ -22,6 +22,9 @@ cuda = [
 [project.scripts]
 caspr = "caspr.__main__:main"
 
+[project.gui-scripts]
+caspr-app = "caspr.__main__:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",
