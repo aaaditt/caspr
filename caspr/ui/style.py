@@ -11,10 +11,6 @@ FG = "#f4f4f5"
 MUTED = "#8b8b93"
 FLAG = "#ff6b6b"
 
-# Kept for the pill, which predates the rename.
-BG_DARK = SURFACE
-FG_LIGHT = FG
-
 # One source of truth for state → color, shared by tray, window, and icons.
 STATE_COLORS = {
     "loading": MUTED,
