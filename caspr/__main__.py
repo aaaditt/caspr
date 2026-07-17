@@ -76,9 +76,20 @@ def main() -> int:
     if args.hotkey:
         cfg.hotkey = args.hotkey
 
+    try:  # give caspr its own taskbar identity instead of the Python interpreter's
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("aaaditt.caspr")
+    except (AttributeError, OSError):
+        pass
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("caspr-flow")
+
+    from .ui.icons import app_icon  # after QApplication exists
+
+    app.setWindowIcon(app_icon())
 
     server = None
     if not args.wav:  # debug runs stay out of the single-instance protocol

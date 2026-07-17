@@ -1,34 +1,15 @@
-"""System tray icon: colored dot per state + pause/quit menu."""
+"""System tray icon: app glyph with a state-colored badge + pause/quit menu."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QBrush, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from collections.abc import Callable
 
 from ..app import AppController
-
-_STATE_COLORS = {
-    "loading": "#95a5a6",
-    "idle": "#4a90d9",
-    "recording": "#e74c3c",
-    "processing": "#f39c12",
-    "error": "#7f1d1d",
-}
-
-
-def _dot_icon(color: str) -> QIcon:
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QBrush(QColor(color)))
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawEllipse(4, 4, 24, 24)
-    painter.end()
-    return QIcon(pixmap)
+from .icons import tray_icon
+from .style import STATE_COLORS
 
 
 class Tray(QSystemTrayIcon):
@@ -38,10 +19,10 @@ class Tray(QSystemTrayIcon):
         app: QApplication,
         on_open: Callable[[], None] | None = None,
     ):
-        super().__init__(_dot_icon(_STATE_COLORS["loading"]))
+        super().__init__(tray_icon("loading"))
         self._controller = controller
         self._on_open = on_open
-        self._icons = {state: _dot_icon(color) for state, color in _STATE_COLORS.items()}
+        self._icons = {state: tray_icon(state) for state in STATE_COLORS}
 
         menu = QMenu()
         self._status_action = QAction("loading model…")

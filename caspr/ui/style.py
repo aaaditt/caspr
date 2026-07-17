@@ -15,6 +15,21 @@ FLAG = "#ff6b6b"
 BG_DARK = SURFACE
 FG_LIGHT = FG
 
+# One source of truth for state → color, shared by tray, window, and icons.
+STATE_COLORS = {
+    "loading": MUTED,
+    "idle": ACCENT,
+    "recording": "#ef4444",
+    "processing": "#f59e0b",
+    "error": "#dc2626",
+    "paused": "#eab308",
+}
+
+_STATUS_DOT_QSS = "\n".join(
+    f'QLabel#statusDot[state="{state}"] {{ color: {color}; }}'
+    for state, color in STATE_COLORS.items()
+)
+
 APP_QSS = f"""
 QWidget {{
     font-family: 'Segoe UI Variable', 'Segoe UI';
@@ -23,6 +38,13 @@ QWidget {{
     color: {FG};
 }}
 QLabel {{ background: transparent; }}
+QLabel#h1 {{ font-size: 22px; font-weight: 600; }}
+QLabel#caption {{ color: {MUTED}; font-size: 12px; }}
+QLabel#muted {{ color: {MUTED}; }}
+QLabel#note {{ color: {MUTED}; font-size: 11px; }}
+QLabel#statValue {{ font-size: 26px; font-weight: 700; }}
+QLabel#statusDot {{ font-size: 16px; color: {MUTED}; }}
+{_STATUS_DOT_QSS}
 QFrame#card {{
     background: {SURFACE};
     border: 1px solid #26272e;
@@ -39,6 +61,10 @@ QListWidget#sidebar::item {{
     border-radius: 8px;
     margin: 2px 10px;
     color: {MUTED};
+}}
+QListWidget#sidebar::item:hover {{
+    background: #202128;
+    color: {FG};
 }}
 QListWidget#sidebar::item:selected {{
     background: {SURFACE};

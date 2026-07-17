@@ -32,15 +32,7 @@ from ..hotkeys import parse_chord
 from ..launcher import set_startup, startup_enabled
 from ..spellcheck import flag_unknown_words
 from .correct import CorrectionPopup
-from .style import ACCENT, APP_QSS, MUTED, flagged_html
-
-_STATE_COLORS = {
-    "loading": "#95a5a6",
-    "idle": ACCENT,
-    "recording": "#e74c3c",
-    "processing": "#f39c12",
-    "error": "#7f1d1d",
-}
+from .style import APP_QSS, MUTED, flagged_html
 
 _HOTKEY_PRESETS = [
     ("Ctrl + Win", "ctrl+windows"),
@@ -66,6 +58,13 @@ def _card() -> tuple[QFrame, QVBoxLayout]:
 def _hotkey_hint(hotkey: str) -> str:
     pretty = " + ".join(part.title() for part in parse_chord(hotkey))
     return f"Hold {pretty} anywhere to dictate"
+
+
+def _repolish(widget: QWidget) -> None:
+    """Re-evaluate QSS after a dynamic property change (Qt caches otherwise)."""
+    style = widget.style()
+    style.unpolish(widget)
+    style.polish(widget)
 
 
 class MainWindow(QWidget):
@@ -133,20 +132,21 @@ class MainWindow(QWidget):
         hour = datetime.now().hour
         part = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
         greeting = QLabel(f"Good {part}, {getpass.getuser().title()}")
-        greeting.setStyleSheet("font-size: 22px; font-weight: 600;")
+        greeting.setObjectName("h1")
         layout.addWidget(greeting)
 
         status_card, status_layout = _card()
         row = QHBoxLayout()
         self._status_dot = QLabel("●")
-        self._status_dot.setStyleSheet(f"color: {_STATE_COLORS['loading']}; font-size: 16px;")
+        self._status_dot.setObjectName("statusDot")
+        self._status_dot.setProperty("state", "loading")
         self._status_text = QLabel("loading model…")
         row.addWidget(self._status_dot)
         row.addWidget(self._status_text)
         row.addStretch()
         status_layout.addLayout(row)
         self._hint = QLabel(_hotkey_hint(self._controller.cfg.hotkey))
-        self._hint.setStyleSheet(f"color: {MUTED};")
+        self._hint.setObjectName("muted")
         status_layout.addWidget(self._hint)
         layout.addWidget(status_card)
 
@@ -155,9 +155,9 @@ class MainWindow(QWidget):
         for caption in ("dictations today", "words dictated", "avg latency"):
             card, card_layout = _card()
             value = QLabel("—")
-            value.setStyleSheet("font-size: 26px; font-weight: 700;")
+            value.setObjectName("statValue")
             cap = QLabel(caption)
-            cap.setStyleSheet(f"color: {MUTED}; font-size: 12px;")
+            cap.setObjectName("caption")
             card_layout.addWidget(value)
             card_layout.addWidget(cap)
             stats_row.addWidget(card)
@@ -165,7 +165,7 @@ class MainWindow(QWidget):
         layout.addLayout(stats_row)
 
         recent_caption = QLabel("Recent")
-        recent_caption.setStyleSheet(f"color: {MUTED}; font-size: 12px;")
+        recent_caption.setObjectName("caption")
         layout.addWidget(recent_caption)
         self._recent = QVBoxLayout()
         layout.addLayout(self._recent)
@@ -185,14 +185,13 @@ class MainWindow(QWidget):
         for entry in self._controller.history.recent(limit=5):
             spans = flag_unknown_words(entry.final_text, cfg.dictionary, cfg.flag_zipf_threshold)
             label = QLabel(flagged_html(entry.final_text, spans))
-            label.setStyleSheet(f"color: {MUTED};")
+            label.setObjectName("muted")
             label.setTextFormat(Qt.TextFormat.RichText)
             self._recent.addWidget(label)
 
     def _on_state(self, state: str, detail: str) -> None:
-        self._status_dot.setStyleSheet(
-            f"color: {_STATE_COLORS.get(state, ACCENT)}; font-size: 16px;"
-        )
+        self._status_dot.setProperty("state", state)
+        _repolish(self._status_dot)
         self._status_text.setText(detail or state)
 
     # -- Dictionary -------------------------------------------------------------
@@ -259,7 +258,7 @@ class MainWindow(QWidget):
         self._dictations = QListWidget()
         self._dictations.itemDoubleClicked.connect(self._open_correction)
         hint = QLabel("Double-click a dictation to correct it / teach words.")
-        hint.setStyleSheet(f"color: {MUTED}; font-size: 12px;")
+        hint.setObjectName("caption")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.addWidget(self._dictations)
@@ -305,7 +304,7 @@ class MainWindow(QWidget):
             line.addWidget(control, 1)
             if note:
                 note_label = QLabel(note)
-                note_label.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
+                note_label.setObjectName("note")
                 line.addWidget(note_label)
             layout.addLayout(line)
 
