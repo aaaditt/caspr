@@ -1,9 +1,12 @@
-"""caspr-flow entrypoint: tray app with global push-to-talk dictation.
+"""caspr-flow entrypoint: app window + tray + global push-to-talk dictation.
 
 Usage:
-    caspr                       # normal: hold right-Ctrl to dictate
+    caspr                       # open the app window; hold Ctrl+Win to dictate
     caspr --wav file.wav        # debug: run pipeline once on a WAV, paste, exit
     caspr --model tiny --device cpu --hotkey f9   # config overrides for this run
+
+Single instance: the first process listens on a QLocalServer; a second `caspr`
+just tells it to surface the window and exits.
 """
 
 from __future__ import annotations
@@ -11,10 +14,9 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QLockFile
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from .app import AppController
@@ -24,6 +26,8 @@ from .hotkeys import PushToTalk
 from .launcher import install_launcher, set_startup
 
 log = logging.getLogger("caspr")
+
+_SERVER_NAME = "caspr-flow"
 
 
 def _setup_logging() -> None:
@@ -76,19 +80,30 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("caspr-flow")
 
-    lock = QLockFile(str(Path(tempfile.gettempdir()) / "caspr-flow.lock"))
-    if not lock.tryLock(100):
-        print("caspr-flow is already running (check the system tray)", file=sys.stderr)
-        return 1
+    server = None
+    if not args.wav:  # debug runs stay out of the single-instance protocol
+        # Already running? Tell that instance to surface its window and bow out.
+        probe = QLocalSocket()
+        probe.connectToServer(_SERVER_NAME)
+        if probe.waitForConnected(300):
+            probe.write(b"show")
+            probe.flush()
+            probe.waitForBytesWritten(300)
+            probe.disconnectFromServer()
+            print("caspr is already running — surfaced its window")
+            return 0
+
+        QLocalServer.removeServer(_SERVER_NAME)  # clear stale socket after a crash
+        server = QLocalServer()
+        server.listen(_SERVER_NAME)
 
     controller = AppController(cfg)
 
     from .ui.tray import Tray  # after QApplication exists
 
-    tray = Tray(controller, app)
-    tray.show()
-
     if args.wav:
+        tray = Tray(controller, app)
+        tray.show()
         audio = load_wav_mono16k(args.wav)
         transitions: list[str] = []
 
@@ -106,9 +121,18 @@ def main() -> int:
         controller.state_changed.connect(on_state)
     else:
         from .ui.correct import CorrectionPopup
+        from .ui.main_window import MainWindow
         from .ui.overlay import Pill
 
-        pill = Pill(cfg.pill_linger_s)
+        window = MainWindow(controller)
+        tray = Tray(controller, app, on_open=window.surface)
+        tray.show()
+        assert server is not None  # non-wav mode always listens
+        server.newConnection.connect(
+            lambda: (server.nextPendingConnection(), window.surface())
+        )
+
+        pill = Pill(cfg)
         controller.state_changed.connect(pill.on_state)
         controller.input_level.connect(pill.set_level)
         controller.dictation_done.connect(pill.show_transcript)
@@ -116,8 +140,19 @@ def main() -> int:
             lambda text: CorrectionPopup(controller, text).exec()
         )
 
-        ptt = PushToTalk(cfg.hotkey, controller.on_ptt_press, controller.on_ptt_release)
-        ptt.start()
+        ptt_holder: dict[str, PushToTalk] = {}
+
+        def arm(chord: str) -> None:
+            if "ptt" in ptt_holder:
+                ptt_holder["ptt"].stop()
+            ptt_holder["ptt"] = PushToTalk(
+                chord, controller.on_ptt_press, controller.on_ptt_release
+            )
+            ptt_holder["ptt"].start()
+
+        arm(cfg.hotkey)
+        window.hotkey_changed.connect(arm)
+        window.surface()
         log.info("ready: hold %r to dictate", cfg.hotkey)
 
     controller.start()
