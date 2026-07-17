@@ -43,3 +43,28 @@ def test_recent_respects_limit(tmp_path):
     for i in range(5):
         h.add(f"r{i}", f"f{i}", 0.1, 0.2)
     assert len(h.recent(limit=3)) == 3
+
+
+def test_search_matches_substring_case_insensitive(tmp_path):
+    h = History(tmp_path / "h.db")
+    h.add("raw", "Hello world", 0.1, 0.2)
+    h.add("raw", "goodbye moon", 0.1, 0.2)
+    assert [e.final_text for e in h.search("hello")] == ["Hello world"]
+    assert h.search("mars") == []
+
+
+def test_search_newest_first(tmp_path):
+    h = History(tmp_path / "h.db")
+    h.add("raw", "note one", 0.1, 0.2)
+    h.add("raw", "note two", 0.1, 0.2)
+    assert [e.final_text for e in h.search("note")] == ["note two", "note one"]
+
+
+def test_search_escapes_like_wildcards(tmp_path):
+    h = History(tmp_path / "h.db")
+    h.add("raw", "100% done", 0.1, 0.2)
+    h.add("raw", "100 percent done", 0.1, 0.2)
+    assert [e.final_text for e in h.search("100%")] == ["100% done"]
+    h.add("raw", "a_b", 0.1, 0.2)
+    h.add("raw", "axb", 0.1, 0.2)
+    assert [e.final_text for e in h.search("a_b")] == ["a_b"]

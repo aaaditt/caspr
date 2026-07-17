@@ -10,7 +10,8 @@ from __future__ import annotations
 import getpass
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -31,8 +33,18 @@ from ..config import save_config
 from ..hotkeys import parse_chord
 from ..launcher import set_startup, startup_enabled
 from ..spellcheck import flag_unknown_words
+from ..timefmt import rel_time
 from .correct import CorrectionPopup
+from .icons import app_icon, glyph_icon
 from .style import APP_QSS, MUTED, flagged_html
+
+# Segoe Fluent / MDL2 glyphs for the sidebar
+_PAGE_GLYPHS = {
+    "Home": "",
+    "Dictionary": "",
+    "History": "",
+    "Settings": "",
+}
 
 _HOTKEY_PRESETS = [
     ("Ctrl + Win", "ctrl+windows"),
@@ -53,6 +65,15 @@ def _card() -> tuple[QFrame, QVBoxLayout]:
     layout = QVBoxLayout(frame)
     layout.setContentsMargins(18, 14, 18, 14)
     return frame, layout
+
+
+def _empty_label(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setObjectName("caption")
+    label.setWordWrap(True)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    label.hide()
+    return label
 
 
 def _hotkey_hint(hotkey: str) -> str:
@@ -79,7 +100,7 @@ class MainWindow(QWidget):
 
         self._sidebar = QListWidget()
         self._sidebar.setObjectName("sidebar")
-        self._sidebar.setFixedWidth(170)
+        self._sidebar.setIconSize(QSize(16, 16))
         self._pages = QStackedWidget()
         for name, page in (
             ("Home", self._home_page()),
@@ -87,18 +108,46 @@ class MainWindow(QWidget):
             ("History", self._history_page()),
             ("Settings", self._settings_page()),
         ):
-            self._sidebar.addItem(name)
+            self._sidebar.addItem(
+                QListWidgetItem(glyph_icon(_PAGE_GLYPHS[name], MUTED, 16), name)
+            )
             self._pages.addWidget(page)
         self._sidebar.currentRowChanged.connect(self._pages.setCurrentIndex)
         self._sidebar.setCurrentRow(0)
 
+        brand = QHBoxLayout()
+        brand.setContentsMargins(18, 16, 18, 8)
+        brand.setSpacing(8)
+        brand_glyph = QLabel()
+        brand_glyph.setPixmap(app_icon().pixmap(20, 20))
+        brand_name = QLabel("caspr")
+        brand_name.setObjectName("brandName")
+        brand.addWidget(brand_glyph)
+        brand.addWidget(brand_name)
+        brand.addStretch()
+
+        sidebar_frame = QFrame()
+        sidebar_frame.setObjectName("sidebarFrame")
+        sidebar_frame.setFixedWidth(170)
+        sidebar_column = QVBoxLayout(sidebar_frame)
+        sidebar_column.setContentsMargins(0, 0, 0, 0)
+        sidebar_column.setSpacing(0)
+        sidebar_column.addLayout(brand)
+        sidebar_column.addWidget(self._sidebar)
+
         shell = QHBoxLayout(self)
         shell.setContentsMargins(0, 0, 0, 0)
         shell.setSpacing(0)
-        shell.addWidget(self._sidebar)
+        shell.addWidget(sidebar_frame)
         shell.addWidget(self._pages, 1)
 
+        self._tick_timer = QTimer(self)  # keeps relative timestamps fresh
+        self._tick_timer.setInterval(30_000)
+        self._tick_timer.timeout.connect(self.refresh)
+
+        self._last_state = ("loading", "")
         controller.state_changed.connect(self._on_state)
+        controller.paused_changed.connect(self._on_paused)
         controller.dictation_done.connect(lambda *_: self.refresh())
 
     # -- window behavior ----------------------------------------------------
@@ -114,7 +163,12 @@ class MainWindow(QWidget):
 
     def showEvent(self, event) -> None:
         self.refresh()
+        self._tick_timer.start()
         super().showEvent(event)
+
+    def hideEvent(self, event) -> None:
+        self._tick_timer.stop()
+        super().hideEvent(event)
 
     def refresh(self) -> None:
         self._refresh_home()
@@ -129,11 +183,9 @@ class MainWindow(QWidget):
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(16)
 
-        hour = datetime.now().hour
-        part = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
-        greeting = QLabel(f"Good {part}, {getpass.getuser().title()}")
-        greeting.setObjectName("h1")
-        layout.addWidget(greeting)
+        self._greeting = QLabel()
+        self._greeting.setObjectName("h1")
+        layout.addWidget(self._greeting)
 
         status_card, status_layout = _card()
         row = QHBoxLayout()
@@ -173,6 +225,9 @@ class MainWindow(QWidget):
         return page
 
     def _refresh_home(self) -> None:
+        hour = datetime.now().hour
+        part = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
+        self._greeting.setText(f"Good {part}, {getpass.getuser().title()}")
         stats = self._controller.history.stats()
         self._stat_labels[0].setText(str(stats.today_count))
         self._stat_labels[1].setText(f"{stats.total_words:,}")
@@ -184,15 +239,30 @@ class MainWindow(QWidget):
         cfg = self._controller.cfg
         for entry in self._controller.history.recent(limit=5):
             spans = flag_unknown_words(entry.final_text, cfg.dictionary, cfg.flag_zipf_threshold)
-            label = QLabel(flagged_html(entry.final_text, spans))
-            label.setObjectName("muted")
+            label = QLabel(
+                f"<span style='color:{MUTED}'>{rel_time(entry.ts)}</span>&nbsp;&nbsp;"
+                + flagged_html(entry.final_text, spans)
+            )
             label.setTextFormat(Qt.TextFormat.RichText)
             self._recent.addWidget(label)
 
     def _on_state(self, state: str, detail: str) -> None:
+        self._last_state = (state, detail)
+        if self._controller.paused:
+            return  # keep showing the paused chip until resumed
         self._status_dot.setProperty("state", state)
         _repolish(self._status_dot)
         self._status_text.setText(detail or state)
+
+    def _on_paused(self, paused: bool) -> None:
+        if paused:
+            self._status_dot.setProperty("state", "paused")
+            self._status_text.setText("paused — push-to-talk off")
+        else:
+            state, detail = self._last_state
+            self._status_dot.setProperty("state", state)
+            self._status_text.setText(detail or state)
+        _repolish(self._status_dot)
 
     # -- Dictionary -------------------------------------------------------------
 
@@ -200,6 +270,10 @@ class MainWindow(QWidget):
         page = QWidget()
         self._terms = QListWidget()
         self._rules = QListWidget()
+        self._terms_empty = _empty_label("Words you teach caspr appear here.")
+        self._rules_empty = _empty_label(
+            "Right-click a flagged word in a correction to add a rule."
+        )
         self._new_term = QLineEdit()
         self._new_term.setPlaceholderText("Add a word caspr should know…")
         self._new_term.returnPressed.connect(self._add_term)
@@ -210,11 +284,17 @@ class MainWindow(QWidget):
 
         cols = QHBoxLayout()
         left, right = QVBoxLayout(), QVBoxLayout()
-        left.addWidget(QLabel("Dictionary terms"))
+        terms_caption = QLabel("Dictionary terms")
+        terms_caption.setObjectName("caption")
+        left.addWidget(terms_caption)
+        left.addWidget(self._terms_empty)
         left.addWidget(self._terms)
         left.addWidget(self._new_term)
         left.addWidget(remove_term)
-        right.addWidget(QLabel("Replacement rules"))
+        rules_caption = QLabel("Replacement rules")
+        rules_caption.setObjectName("caption")
+        right.addWidget(rules_caption)
+        right.addWidget(self._rules_empty)
         right.addWidget(self._rules)
         right.addWidget(remove_rule)
         cols.addLayout(left)
@@ -250,42 +330,85 @@ class MainWindow(QWidget):
             item = QListWidgetItem(f"{wrong} → {right}")
             item.setData(Qt.ItemDataRole.UserRole, wrong)
             self._rules.addItem(item)
+        self._terms_empty.setVisible(not cfg.dictionary)
+        self._rules_empty.setVisible(not cfg.replacements)
 
     # -- History -----------------------------------------------------------------
 
     def _history_page(self) -> QWidget:
         page = QWidget()
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Search dictations…")
+        self._search.textChanged.connect(lambda _: self._refresh_history())
         self._dictations = QListWidget()
         self._dictations.itemDoubleClicked.connect(self._open_correction)
-        hint = QLabel("Double-click a dictation to correct it / teach words.")
+        self._dictations.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._dictations.customContextMenuRequested.connect(self._history_menu)
+        self._history_empty = _empty_label("")
+        hint = QLabel("Double-click to correct · right-click to copy or delete.")
         hint.setObjectName("caption")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(10)
+        layout.addWidget(self._search)
+        layout.addWidget(self._history_empty)
         layout.addWidget(self._dictations)
         layout.addWidget(hint)
         return page
 
     def _open_correction(self, item: QListWidgetItem) -> None:
-        CorrectionPopup(self._controller, item.data(Qt.ItemDataRole.UserRole), self).exec()
+        _, text = item.data(Qt.ItemDataRole.UserRole)
+        CorrectionPopup(self._controller, text, self).exec()
         self.refresh()
+
+    def _history_menu(self, pos) -> None:
+        item = self._dictations.itemAt(pos)
+        if item is None:
+            return
+        entry_id, text = item.data(Qt.ItemDataRole.UserRole)
+        menu = QMenu(self)
+        copy_action = menu.addAction("Copy text")
+        correct_action = menu.addAction("Correct…")
+        delete_action = menu.addAction("Delete")
+        chosen = menu.exec(self._dictations.mapToGlobal(pos))
+        if chosen is copy_action:
+            QGuiApplication.clipboard().setText(text)
+        elif chosen is correct_action:
+            self._open_correction(item)
+        elif chosen is delete_action:
+            self._controller.history.delete(entry_id)
+            self.refresh()
 
     def _refresh_history(self) -> None:
         cfg = self._controller.cfg
+        query = self._search.text().strip()
+        entries = (
+            self._controller.history.search(query)
+            if query
+            else self._controller.history.recent()
+        )
         self._dictations.clear()
-        for entry in self._controller.history.recent():
+        for entry in entries:
             spans = flag_unknown_words(entry.final_text, cfg.dictionary, cfg.flag_zipf_threshold)
-            when = datetime.fromtimestamp(entry.ts).strftime("%d %b %H:%M")
             label = QLabel(
-                f"<span style='color:{MUTED}'>{when}</span>&nbsp;&nbsp;"
+                f"<span style='color:{MUTED}'>{rel_time(entry.ts)}</span>&nbsp;&nbsp;"
                 + flagged_html(entry.final_text, spans)
             )
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
+            label.setToolTip(datetime.fromtimestamp(entry.ts).strftime("%d %b %Y %H:%M"))
             item = QListWidgetItem()
-            item.setData(Qt.ItemDataRole.UserRole, entry.final_text)
+            item.setData(Qt.ItemDataRole.UserRole, (entry.id, entry.final_text))
             item.setSizeHint(label.sizeHint())
             self._dictations.addItem(item)
             self._dictations.setItemWidget(item, label)
+        if not entries:
+            self._history_empty.setText(
+                "No matches."
+                if query
+                else f"Nothing here yet — {_hotkey_hint(cfg.hotkey).lower()}."
+            )
+        self._history_empty.setVisible(not entries)
 
     # -- Settings -----------------------------------------------------------------
 

@@ -37,6 +37,7 @@ class AppController(QObject):
     input_level = Signal(float)
     # final injected text, flagged spans (list[tuple[int, int]])
     dictation_done = Signal(str, object)
+    paused_changed = Signal(bool)
 
     def __init__(self, cfg: Config, config_path=None, history_path=None):
         super().__init__()
@@ -61,6 +62,7 @@ class AppController(QObject):
     def toggle_pause(self) -> None:
         self.paused = not self.paused
         self._set_state(self._state, "paused" if self.paused else "")
+        self.paused_changed.emit(self.paused)
 
     # -- learning (explicit user actions only) -----------------------------
 

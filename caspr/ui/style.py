@@ -46,6 +46,8 @@ QFrame#card {{
     border: 1px solid #26272e;
     border-radius: 12px;
 }}
+QFrame#sidebarFrame {{ background: {BG}; }}
+QLabel#brandName {{ font-size: 16px; font-weight: 600; }}
 QListWidget#sidebar {{
     background: {BG};
     border: none;

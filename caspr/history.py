@@ -44,6 +44,11 @@ def default_history_path() -> Path:
     return default_config_path().parent / "history.db"
 
 
+def _escape_like(query: str) -> str:
+    """Escape LIKE wildcards so user input matches literally."""
+    return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class History:
     def __init__(self, path: Path | None = None):
         self._path = Path(path) if path else default_history_path()
@@ -70,6 +75,17 @@ class History:
                 "SELECT id, ts, raw_text, final_text, infer_s, total_s"
                 " FROM dictations ORDER BY id DESC LIMIT ?",
                 (limit,),
+            ).fetchall()
+        return [Entry(*row) for row in rows]
+
+    def search(self, query: str, limit: int = 200) -> list[Entry]:
+        like = "%" + _escape_like(query) + "%"
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT id, ts, raw_text, final_text, infer_s, total_s"
+                " FROM dictations WHERE final_text LIKE ? ESCAPE '\\'"
+                " ORDER BY id DESC LIMIT ?",
+                (like, limit),
             ).fetchall()
         return [Entry(*row) for row in rows]
 
