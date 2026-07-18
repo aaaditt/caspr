@@ -83,6 +83,10 @@ def main() -> int:
     except (AttributeError, OSError):
         pass
 
+    if not args.wav:
+        # QtWebEngine must be imported before the QApplication exists
+        from PySide6 import QtWebEngineWidgets  # noqa: F401
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("caspr-flow")
@@ -132,10 +136,10 @@ def main() -> int:
         controller.state_changed.connect(on_state)
     else:
         from .ui.correct import CorrectionPopup
-        from .ui.main_window import MainWindow
         from .ui.overlay import Pill
+        from .ui.shell import Shell
 
-        window = MainWindow(controller)
+        window = Shell(controller)
         tray = Tray(controller, app, on_open=window.surface)
         tray.show()
         assert server is not None  # non-wav mode always listens

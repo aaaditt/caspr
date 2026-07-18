@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+
+@theme {
+  --color-espresso: #151110;
+  --color-surface: #1c1715;
+  --color-raised: #241d1a;
+  --color-hairline: #2a221d;
+  --color-cream: #f6efe7;
+  --color-ink: #d9cec3;
+  --color-muted: #9c8f85;
+  --color-faint: #6f6359;
+  --color-coral: #ff8a65;
+  --color-amber: #ffb74d;
+  --color-ember: #ff5c49;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* app window — pages scroll internally */
+  user-select: none; /* desktop feel; inputs opt back in */
+  background:
+    radial-gradient(640px 400px at 86% 112%, rgba(255, 138, 101, 0.07), transparent 62%),
+    var(--color-espresso);
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+::selection {
+  background: rgba(255, 138, 101, 0.3);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2e2620;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes wave-bob {
+  0%,
+  100% {
+    height: 26%;
+  }
+  50% {
+    height: var(--h);
+  }
+}

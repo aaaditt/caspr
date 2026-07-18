@@ -3,10 +3,13 @@ __pycache__/
 *.py[cod]
 .venv/
 *.egg-info/
-dist/
+/dist/
 build/
 .pytest_cache/
 .ruff_cache/
+
+# Browser-automation QA artifacts
+.playwright-mcp/
 
 # Whisper models / large fixtures cache
 models/
