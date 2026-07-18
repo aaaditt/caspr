@@ -55,6 +55,10 @@ class AppController(QObject):
 
     # -- lifecycle --------------------------------------------------------
 
+    @property
+    def state(self) -> str:
+        return self._state
+
     def start(self) -> None:
         self._executor.submit(self._load_model)
 

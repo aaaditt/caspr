@@ -1,21 +1,17 @@
+import { useEffect, useState } from 'react'
 import { Card } from '../components/Card'
+import { FlaggedText } from '../components/FlaggedText'
 import { Waveform } from '../components/Waveform'
+import { relTime } from '../lib/reltime'
+import { useCaspr } from '../state'
 
-// Task 1 renders with mock data; the live bridge replaces this next commit.
-const MOCK = {
-  name: 'Aadit',
-  statusTitle: 'Listening ready',
-  statusSub: 'large-v3-turbo on CUDA · hold Right Ctrl anywhere and speak',
-  stats: [
-    { value: '27', caption: 'dictations today' },
-    { value: '4,318', caption: 'words dictated' },
-    { value: '1.7s', caption: 'avg latency' },
-  ],
-  recent: [
-    { time: '2 min ago', text: "Let's ship the new onboarding flow by Friday and loop in design." },
-    { time: '14 min ago', text: 'Reschedule the standup to eleven thirty tomorrow.' },
-    { time: '1 h ago', text: 'Add a note to the caspr readme about the new settings page.' },
-  ],
+const DOT: Record<string, string> = {
+  loading: 'bg-muted',
+  idle: 'bg-amber shadow-[0_0_12px_rgba(255,183,77,.8)]',
+  recording: 'bg-ember shadow-[0_0_14px_rgba(255,92,73,.9)]',
+  processing: 'bg-coral shadow-[0_0_12px_rgba(255,138,101,.8)]',
+  error: 'bg-[#e05252] shadow-[0_0_12px_rgba(224,82,82,.8)]',
+  paused: 'bg-[#b8a06a]',
 }
 
 function greeting(): string {
@@ -24,28 +20,66 @@ function greeting(): string {
 }
 
 export function Home() {
+  const { boot, state, detail, paused, levels } = useCaspr()
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000) // keep rel times fresh
+    return () => clearInterval(id)
+  }, [])
+
+  const effective = paused ? 'paused' : state
+  const title = paused
+    ? 'Paused'
+    : state === 'loading'
+      ? 'Warming up'
+      : state === 'recording'
+        ? 'Listening…'
+        : state === 'processing'
+          ? 'Transcribing…'
+          : state === 'error'
+            ? 'Something went wrong'
+            : 'Listening ready'
+  const sub = paused
+    ? 'Push-to-talk is off — resume from the tray'
+    : state === 'idle'
+      ? `${detail || boot.model} · hold ${boot.hotkey_pretty} anywhere and speak`
+      : detail || (state === 'loading' ? `loading ${boot.model}…` : '')
+
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-display text-[30px] italic leading-tight">
-        {greeting()}, {MOCK.name}
+        {greeting()}, {boot.user}
       </h1>
 
       <Card className="flex items-center gap-4 p-5">
         <span className="relative grid h-3 w-3 shrink-0 place-items-center">
-          <span className="absolute inset-[-5px] rounded-full bg-amber opacity-40 [animation:pulse-ring_2.6s_ease-out_infinite]" />
-          <span className="h-[9px] w-[9px] rounded-full bg-amber shadow-[0_0_12px_rgba(255,183,77,.8)]" />
+          {(effective === 'idle' || effective === 'recording') && (
+            <span
+              className={`absolute inset-[-5px] rounded-full opacity-40 [animation:pulse-ring_2.6s_ease-out_infinite] ${
+                effective === 'recording' ? 'bg-ember' : 'bg-amber'
+              }`}
+            />
+          )}
+          <span className={`h-[9px] w-[9px] rounded-full ${DOT[effective] ?? 'bg-muted'}`} />
         </span>
         <div className="min-w-0">
-          <div className="text-[13.5px] font-medium">{MOCK.statusTitle}</div>
-          <div className="mt-0.5 truncate text-xs text-muted">{MOCK.statusSub}</div>
+          <div className="text-[13.5px] font-medium">{title}</div>
+          <div className="mt-0.5 truncate text-xs text-muted">{sub}</div>
         </div>
         <div className="ml-auto">
-          <Waveform />
+          <Waveform
+            levels={state === 'recording' ? levels : undefined}
+            animated={state === 'recording' || state === 'processing'}
+          />
         </div>
       </Card>
 
       <div className="grid grid-cols-3 gap-3">
-        {MOCK.stats.map((s) => (
+        {[
+          { value: String(boot.stats.today), caption: 'dictations today' },
+          { value: boot.stats.words.toLocaleString('en'), caption: 'words dictated' },
+          { value: boot.stats.avg_s ? `${boot.stats.avg_s.toFixed(1)}s` : '—', caption: 'avg latency' },
+        ].map((s) => (
           <Card key={s.caption} className="p-4">
             <div className="text-[26px] font-semibold tabular-nums leading-none text-[#ffd7b8]">
               {s.value}
@@ -57,14 +91,24 @@ export function Home() {
 
       <div>
         <div className="mb-2 text-[10.5px] font-semibold tracking-[.12em] text-faint">RECENT</div>
-        <div className="flex flex-col gap-2">
-          {MOCK.recent.map((r, i) => (
-            <div key={i} className="flex items-baseline gap-2.5 text-[13.5px]">
-              <span className="shrink-0 text-[11.5px] tabular-nums text-faint">{r.time}</span>
-              <span className="truncate text-ink">{r.text}</span>
-            </div>
-          ))}
-        </div>
+        {boot.recent.length === 0 ? (
+          <p className="font-display text-[15px] italic text-muted">
+            Nothing here yet — hold {boot.hotkey_pretty} and speak.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {boot.recent.map((r) => (
+              <div key={r.id} className="flex items-baseline gap-2.5 text-[13.5px]">
+                <span className="shrink-0 text-[11.5px] tabular-nums text-faint">
+                  {relTime(r.ts)}
+                </span>
+                <span className="truncate text-ink">
+                  <FlaggedText text={r.text} spans={r.spans} />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

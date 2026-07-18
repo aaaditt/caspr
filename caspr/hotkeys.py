@@ -24,6 +24,11 @@ def parse_chord(chord: str) -> list[str]:
     return [part.strip().lower() for part in chord.split("+") if part.strip()]
 
 
+def pretty_chord(chord: str) -> str:
+    """"ctrl+windows" → "Ctrl + Windows" for user-facing labels."""
+    return " + ".join(part.title() for part in parse_chord(chord))
+
+
 MODIFIERS = {"ctrl", "alt", "shift", "windows"}
 _SIDED = {
     "left ctrl": "ctrl",
