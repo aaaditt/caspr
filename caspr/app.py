@@ -110,18 +110,19 @@ class AppController(QObject):
             save_config(self.cfg, self.config_path)
 
     def _load_model(self) -> None:
-        from .stt import Transcriber  # heavy import off the main thread
+        from . import stt  # heavy import off the main thread
 
         # Free the old model first: 4 GB VRAM can't hold two at once on reload.
         self._transcriber = None
         try:
-            transcriber = Transcriber(self.cfg.model, self.cfg.device)
+            transcriber = stt.create_transcriber(self.cfg)
             # First CUDA inference compiles kernels; warm up on silence now so
             # the first real dictation isn't slow.
             transcriber.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
             flag_unknown_words("warmup", [])  # wordfreq loads its data lazily
             self._transcriber = transcriber
-            self._set_state("idle", f"{self.cfg.model} on {transcriber.device}")
+            name = getattr(transcriber, "name", self.cfg.model)
+            self._set_state("idle", f"{name} on {transcriber.device}")
         except Exception as e:
             log.exception("model load failed")
             self._set_state("error", f"model load failed: {e}")

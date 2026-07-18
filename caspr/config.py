@@ -16,6 +16,8 @@ class Config:
     # is ~1.76s if accuracy matters more than latency.
     model: str = "small"
     device: str = "auto"  # auto | cuda | cpu
+    # auto = Parakeet when language is pinned to English, Whisper otherwise
+    engine: str = "auto"  # auto | parakeet | whisper
     language: str | None = None  # None = let Whisper auto-detect
     input_device: int | None = None  # None = system default microphone
     injection: str = "type"  # "type" (SendInput unicode) | "clipboard" (swap + Ctrl+V)

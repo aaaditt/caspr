@@ -15,8 +15,8 @@ from caspr.ui.bridge_data import (
 
 BOOT_KEYS = {
     "user", "state", "paused", "hotkey", "hotkey_pretty", "model", "device",
-    "language", "injection", "pill_linger_s", "sound_cues", "input_device",
-    "mics", "startup", "stats", "recent",
+    "engine", "language", "injection", "pill_linger_s", "sound_cues",
+    "input_device", "mics", "startup", "stats", "recent",
 }
 
 
@@ -73,8 +73,11 @@ def test_apply_setting_mic_and_language_coercion(tmp_path, monkeypatch):
     try:
         assert apply_setting(c, "input_device", 9) == "mic"
         assert calls == [("mic", 9)]
-        assert apply_setting(c, "language", "") == ""  # "" persists as None
+        # "" persists as None; language now reloads because it steers routing
+        assert apply_setting(c, "language", "") == "reload"
         assert c.cfg.language is None
+        assert apply_setting(c, "engine", "parakeet") == "reload"
+        assert calls == [("mic", 9), "reload", "reload"]
         assert apply_setting(c, "input_device", None) == "mic"
         assert c.cfg.input_device is None
     finally:

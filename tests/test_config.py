@@ -8,6 +8,7 @@ def test_defaults():
     assert cfg.hotkey == "ctrl+windows"
     assert cfg.model == "small"
     assert cfg.device == "auto"
+    assert cfg.engine == "auto"
     assert cfg.language is None
     assert cfg.dictionary == []
 

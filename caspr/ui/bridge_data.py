@@ -15,6 +15,7 @@ from ..spellcheck import flag_unknown_words
 _SETTING_KEYS = {
     "model",
     "device",
+    "engine",
     "language",
     "injection",
     "pill_linger_s",
@@ -46,7 +47,8 @@ def apply_setting(controller, key: str, value) -> str:
             return ""
     setattr(controller.cfg, key, value)
     save_config(controller.cfg, controller.config_path)
-    if key in ("model", "device"):
+    # language steers auto engine routing, so it reloads too
+    if key in ("model", "device", "engine", "language"):
         controller.reload_model()
         return "reload"
     if key == "input_device":
@@ -94,6 +96,7 @@ def bootstrap(controller) -> dict:
         "hotkey_pretty": pretty_chord(cfg.hotkey),
         "model": cfg.model,
         "device": cfg.device,
+        "engine": cfg.engine,
         "language": cfg.language or "",
         "injection": cfg.injection,
         "pill_linger_s": cfg.pill_linger_s,

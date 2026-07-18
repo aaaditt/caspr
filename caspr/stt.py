@@ -27,6 +27,29 @@ class Transcription:
     infer_s: float  # wall-clock inference time
 
 
+def pick_engine(engine: str, language: str | None) -> str:
+    """Route dictation to an STT engine.
+
+    "auto" picks Parakeet only when the user pinned English in Settings —
+    routing happens before any audio exists, so language auto-detect (and
+    Hindi) stay on Whisper. Explicit "parakeet"/"whisper" always win.
+    """
+    if engine in ("parakeet", "whisper"):
+        return engine
+    return "parakeet" if language == "en" else "whisper"
+
+
+def create_transcriber(cfg):
+    """Build the engine cfg asks for. Both engines share the same contract:
+    .transcribe(audio, language=..., initial_prompt=...) -> Transcription,
+    plus .device and .name attributes."""
+    if pick_engine(cfg.engine, cfg.language) == "parakeet":
+        from .stt_parakeet import ParakeetTranscriber
+
+        return ParakeetTranscriber(cfg.device)
+    return Transcriber(cfg.model, cfg.device)
+
+
 def _add_nvidia_dll_dirs() -> None:
     spec = find_spec("nvidia")
     if spec is None or not spec.submodule_search_locations:
@@ -37,7 +60,10 @@ def _add_nvidia_dll_dirs() -> None:
 
 
 class Transcriber:
+    name = "whisper"
+
     def __init__(self, model_name: str = "large-v3-turbo", device: str = "auto"):
+        self.name = model_name
         from faster_whisper import WhisperModel  # heavy import, keep it out of module load
 
         attempts = {
