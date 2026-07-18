@@ -1,3 +1,4 @@
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { ResizeEdges } from './components/ResizeEdges'
 import { Sidebar, type Page } from './components/Sidebar'
@@ -17,6 +18,7 @@ const PAGES: Record<Page, React.ComponentType> = {
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
+  const reduce = useReducedMotion()
 
   const Current = PAGES[page]
   return (
@@ -27,7 +29,18 @@ export default function App() {
         <div className="flex min-w-0 flex-1 flex-col">
           <TitleBar />
           <main className="flex-1 overflow-y-auto px-8 pb-8">
-            <Current />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={page}
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="h-full"
+              >
+                <Current />
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
       </div>

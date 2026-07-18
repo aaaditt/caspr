@@ -27,3 +27,20 @@ words, right-click a red word to add it to your dictionary or create an
 "always replace" rule. Tray → History & dictionary reviews everything.
 
 `uv run caspr` runs attached to the terminal with console logs (dev mode).
+
+## Web UI (Velvet)
+
+The main window is a React + Tailwind app (`webui/`) rendered by QtWebEngine
+inside the Python process. The built bundle in `webui/dist/` is committed, so
+`uv run caspr` works without Node.
+
+Developing the UI needs Node 18+:
+
+```powershell
+cd webui
+npm install
+npm run dev                        # Vite dev server with hot reload
+$env:CASPR_UI_DEV = '1'; uv run caspr   # app loads localhost:5173 instead of dist
+```
+
+After UI changes, rebuild and commit the bundle: `npm run build`.

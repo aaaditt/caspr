@@ -1,9 +1,19 @@
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Card } from '../components/Card'
 import { FlaggedText } from '../components/FlaggedText'
 import { Waveform } from '../components/Waveform'
 import { relTime } from '../lib/reltime'
 import { useCaspr } from '../state'
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.055 } },
+}
+const rise = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' as const } },
+}
 
 const DOT: Record<string, string> = {
   loading: 'bg-muted',
@@ -21,6 +31,7 @@ function greeting(): string {
 
 export function Home() {
   const { boot, state, detail, paused, levels } = useCaspr()
+  const reduce = useReducedMotion()
   const [, tick] = useState(0)
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 30_000) // keep rel times fresh
@@ -46,11 +57,17 @@ export function Home() {
       : detail || (state === 'loading' ? `loading ${boot.model}…` : '')
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="font-display text-[30px] italic leading-tight">
+    <motion.div
+      className="flex flex-col gap-5"
+      variants={reduce ? undefined : stagger}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.h1 variants={rise} className="font-display text-[30px] italic leading-tight">
         {greeting()}, {boot.user}
-      </h1>
+      </motion.h1>
 
+      <motion.div variants={rise}>
       <Card className="flex items-center gap-4 p-5">
         <span className="relative grid h-3 w-3 shrink-0 place-items-center">
           {(effective === 'idle' || effective === 'recording') && (
@@ -69,27 +86,31 @@ export function Home() {
         <div className="ml-auto">
           <Waveform
             levels={state === 'recording' ? levels : undefined}
-            animated={state === 'recording' || state === 'processing'}
+            animated={!reduce && (state === 'recording' || state === 'processing')}
           />
         </div>
       </Card>
+      </motion.div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <motion.div variants={rise} className="grid grid-cols-3 gap-3">
         {[
           { value: String(boot.stats.today), caption: 'dictations today' },
           { value: boot.stats.words.toLocaleString('en'), caption: 'words dictated' },
           { value: boot.stats.avg_s ? `${boot.stats.avg_s.toFixed(1)}s` : '—', caption: 'avg latency' },
         ].map((s) => (
-          <Card key={s.caption} className="p-4">
+          <Card
+            key={s.caption}
+            className="p-4 transition-transform duration-200 hover:-translate-y-0.5"
+          >
             <div className="text-[26px] font-semibold tabular-nums leading-none text-[#ffd7b8]">
               {s.value}
             </div>
             <div className="mt-1.5 text-[11.5px] text-muted">{s.caption}</div>
           </Card>
         ))}
-      </div>
+      </motion.div>
 
-      <div>
+      <motion.div variants={rise}>
         <div className="mb-2 text-[10.5px] font-semibold tracking-[.12em] text-faint">RECENT</div>
         {boot.recent.length === 0 ? (
           <p className="font-display text-[15px] italic text-muted">
@@ -109,7 +130,7 @@ export function Home() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
