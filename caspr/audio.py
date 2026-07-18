@@ -13,6 +13,29 @@ log = logging.getLogger(__name__)
 SAMPLE_RATE = 16_000
 
 
+def list_input_devices() -> list[tuple[int, str]]:
+    """Input devices as (global index, name). Filtered to the WASAPI host API so
+    each mic appears once (PortAudio lists MME/DirectSound duplicates too);
+    global indices remain valid InputStream device args."""
+    import sounddevice as sd  # deferred so unit tests don't need PortAudio
+
+    try:
+        devices = sd.query_devices()
+        hostapis = sd.query_hostapis()
+        wasapi = next(
+            (i for i, api in enumerate(hostapis) if "wasapi" in api["name"].lower()),
+            None,
+        )
+        return [
+            (i, d["name"])
+            for i, d in enumerate(devices)
+            if d["max_input_channels"] > 0 and (wasapi is None or d["hostapi"] == wasapi)
+        ]
+    except Exception as e:
+        log.warning("could not enumerate input devices: %s", e)
+        return []
+
+
 def meter_level(block: np.ndarray) -> float:
     """Map an audio block to a 0..1 level for the UI meter (full-scale sine ≈ 1.0)."""
     if block.size == 0:
@@ -35,6 +58,11 @@ class Recorder:
         self._on_level = on_level
         self._blocks: list[np.ndarray] = []
         self._stream = None
+
+    def set_device(self, device: int | None) -> None:
+        """Takes effect at the next start(); an in-flight recording finishes
+        on the old device."""
+        self._device = device
 
     def start(self) -> None:
         import sounddevice as sd  # deferred so unit tests don't need PortAudio

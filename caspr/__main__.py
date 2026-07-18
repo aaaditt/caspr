@@ -168,6 +168,10 @@ def main() -> int:
 
         arm(cfg.hotkey)
         window.hotkey_changed.connect(arm)
+        # Suspend PTT while the hotkey-capture dialog has its own hook installed
+        window.capture_active.connect(
+            lambda active: ptt_holder["ptt"].stop() if active else arm(cfg.hotkey)
+        )
         window.surface()
         log.info("ready: hold %r to dictate", cfg.hotkey)
 

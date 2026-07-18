@@ -86,6 +86,17 @@ QComboBox QAbstractItemView {{
 QCheckBox {{ background: transparent; }}
 QMenu {{ background: {SURFACE}; color: {FG}; border: 1px solid #26272e; }}
 QMenu::item:selected {{ background: {BG}; }}
+QWidget#transparentRow {{ background: transparent; }}
+QToolButton {{
+    background: transparent; color: {ACCENT}; border: 1px solid #26272e;
+    border-radius: 8px; padding: 6px 12px;
+}}
+QToolButton::menu-indicator {{ image: none; }}
+QScrollArea {{ background: {BG}; border: none; }}
+QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
+QScrollBar::handle:vertical {{ background: #2e2f38; border-radius: 4px; min-height: 30px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
 """
 
 

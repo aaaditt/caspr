@@ -24,6 +24,68 @@ def parse_chord(chord: str) -> list[str]:
     return [part.strip().lower() for part in chord.split("+") if part.strip()]
 
 
+MODIFIERS = {"ctrl", "alt", "shift", "windows"}
+_SIDED = {
+    "left ctrl": "ctrl",
+    "right ctrl": "ctrl",
+    "left alt": "alt",
+    "right alt": "alt",
+    "alt gr": "alt",
+    "left shift": "shift",
+    "right shift": "shift",
+    "left windows": "windows",
+    "right windows": "windows",
+}
+_MOD_ORDER = ("ctrl", "alt", "shift", "windows")
+
+
+def canonical_key(name: str) -> str:
+    """Collapse sided modifiers ("left windows" → "windows") to match how
+    keyboard.on_press_key("windows") aliases both sides."""
+    return _SIDED.get(name.strip().lower(), name.strip().lower())
+
+
+class ChordRecorder:
+    """Builds a chord string from raw down/up key events.
+
+    Finalization: a non-modifier pressed while modifiers are held completes the
+    chord immediately ("ctrl+space" needs no clean release); otherwise the chord
+    is the largest held set, finalized when everything is released (this is what
+    makes modifier-only chords like "ctrl+windows" capturable).
+    """
+
+    def __init__(self):
+        self._down: set[str] = set()
+        self._max_held: set[str] = set()
+        self.chord: str | None = None
+
+    @property
+    def held(self) -> list[str]:
+        """Currently held keys in canonical chord order (for live UI feedback)."""
+        return _ordered(self._down)
+
+    def feed(self, kind: str, name: str) -> None:
+        if self.chord is not None:
+            return
+        key = canonical_key(name)
+        if kind == "down":
+            self._down.add(key)
+            if key not in MODIFIERS and self._down & MODIFIERS:
+                self.chord = "+".join(_ordered(self._down))
+                return
+            if len(self._down) > len(self._max_held):
+                self._max_held = set(self._down)
+        elif kind == "up":
+            self._down.discard(key)
+            if not self._down and self._max_held:
+                self.chord = "+".join(_ordered(self._max_held))
+
+
+def _ordered(keys: set[str]) -> list[str]:
+    mods = [m for m in _MOD_ORDER if m in keys]
+    return mods + sorted(k for k in keys if k not in MODIFIERS)
+
+
 class PushToTalk:
     """Hold every key of `chord` to talk; releasing any of them stops."""
 

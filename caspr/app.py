@@ -77,6 +77,9 @@ class AppController(QObject):
         self._set_state("loading", f"loading {self.cfg.model}…")
         self._executor.submit(self._load_model)
 
+    def set_input_device(self, device: int | None) -> None:
+        self._recorder.set_device(device)
+
     # -- learning (explicit user actions only) -----------------------------
 
     def learn_term(self, term: str) -> None:

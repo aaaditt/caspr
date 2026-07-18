@@ -15,6 +15,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QFrame,
     QHBoxLayout,
@@ -24,17 +25,21 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMenu,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from ..audio import list_input_devices
 from ..config import save_config
 from ..hotkeys import parse_chord
 from ..launcher import set_startup, startup_enabled
 from ..spellcheck import flag_unknown_words
 from ..timefmt import rel_time
 from .correct import CorrectionPopup
+from .hotkey_capture import HotkeyCaptureDialog
 from .icons import app_icon, glyph_icon
 from .style import APP_QSS, MUTED, flagged_html
 
@@ -76,9 +81,12 @@ def _empty_label(text: str) -> QLabel:
     return label
 
 
+def _pretty_chord(hotkey: str) -> str:
+    return " + ".join(part.title() for part in parse_chord(hotkey))
+
+
 def _hotkey_hint(hotkey: str) -> str:
-    pretty = " + ".join(part.title() for part in parse_chord(hotkey))
-    return f"Hold {pretty} anywhere to dictate"
+    return f"Hold {_pretty_chord(hotkey)} anywhere to dictate"
 
 
 def _repolish(widget: QWidget) -> None:
@@ -90,6 +98,7 @@ def _repolish(widget: QWidget) -> None:
 
 class MainWindow(QWidget):
     hotkey_changed = Signal(str)
+    capture_active = Signal(bool)  # True while the hotkey-capture dialog is open
 
     def __init__(self, controller):
         super().__init__(None, Qt.WindowType.Window)
@@ -414,33 +423,79 @@ class MainWindow(QWidget):
 
     def _settings_page(self) -> QWidget:
         cfg = self._controller.cfg
-        page = QWidget()
-        layout = QVBoxLayout(page)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        inner = QWidget()
+        scroll.setWidget(inner)
+        layout = QVBoxLayout(inner)
         layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
-        def row(caption: str, control: QWidget, note: str = "") -> None:
+        def section(title: str) -> QVBoxLayout:
+            caption = QLabel(title)
+            caption.setObjectName("caption")
+            layout.addWidget(caption)
+            card, card_layout = _card()
+            card_layout.setSpacing(10)
+            layout.addWidget(card)
+            layout.addSpacing(8)
+            return card_layout
+
+        def row(parent: QVBoxLayout, caption: str, control: QWidget, note: str = "") -> None:
             line = QHBoxLayout()
             label = QLabel(caption)
-            label.setFixedWidth(160)
+            label.setFixedWidth(150)
             line.addWidget(label)
             line.addWidget(control, 1)
             if note:
                 note_label = QLabel(note)
                 note_label.setObjectName("note")
                 line.addWidget(note_label)
-            layout.addLayout(line)
+            parent.addLayout(line)
 
-        hotkey = QComboBox()
+        dictation = section("Dictation")
+
+        chord_widget = QWidget()
+        chord_widget.setObjectName("transparentRow")
+        chord_row = QHBoxLayout(chord_widget)
+        chord_row.setContentsMargins(0, 0, 0, 0)
+        chord_row.setSpacing(8)
+        self._chord_label = QLabel(_pretty_chord(cfg.hotkey))
+        change = QPushButton("Change…")
+        change.clicked.connect(self._capture_hotkey)
+        presets = QToolButton()
+        presets.setText("Presets")
+        presets.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        preset_menu = QMenu(presets)
         for label_text, value in _HOTKEY_PRESETS:
-            hotkey.addItem(label_text, value)
-        hotkey.setCurrentIndex(
-            max(0, next((i for i, (_, v) in enumerate(_HOTKEY_PRESETS) if v == cfg.hotkey), 0))
+            preset_menu.addAction(label_text, lambda v=value: self._set_hotkey(v))
+        presets.setMenu(preset_menu)
+        chord_row.addWidget(self._chord_label, 1)
+        chord_row.addWidget(change)
+        chord_row.addWidget(presets)
+        row(dictation, "Push-to-talk", chord_widget)
+
+        mic = QComboBox()
+        mic.addItem("System default", None)
+        for index, name in list_input_devices():
+            mic.addItem(name, index)
+        mic.setCurrentIndex(
+            next((i for i in range(mic.count()) if mic.itemData(i) == cfg.input_device), 0)
         )
-        hotkey.currentIndexChanged.connect(
-            lambda i: self._save(hotkey="ctrl+windows" if i < 0 else hotkey.itemData(i))
+        mic.currentIndexChanged.connect(lambda i: self._apply_mic(mic.itemData(i)))
+        row(dictation, "Microphone", mic)
+
+        language = QComboBox()
+        for label_text, value in _LANGUAGES:
+            language.addItem(label_text, value)
+        language.setCurrentIndex(
+            max(0, next((i for i, (_, v) in enumerate(_LANGUAGES) if v == cfg.language), 0))
         )
-        row("Push-to-talk", hotkey)
+        language.currentIndexChanged.connect(lambda i: self._save(language=language.itemData(i)))
+        row(dictation, "Language", language)
+
+        transcription = section("Transcription")
 
         model = QComboBox()
         for label_text, value in _MODELS:
@@ -451,7 +506,7 @@ class MainWindow(QWidget):
         model.currentIndexChanged.connect(
             lambda i: self._apply_transcriber(model=model.itemData(i))
         )
-        row("Whisper model", model, "applies immediately")
+        row(transcription, "Whisper model", model, "applies immediately")
 
         device = QComboBox()
         for label_text, value in (("Auto", "auto"), ("GPU (CUDA)", "cuda"), ("CPU", "cpu")):
@@ -460,23 +515,18 @@ class MainWindow(QWidget):
         device.currentIndexChanged.connect(
             lambda i: self._apply_transcriber(device=device.itemData(i))
         )
-        row("Compute device", device, "applies immediately")
+        row(transcription, "Compute device", device, "applies immediately")
 
-        language = QComboBox()
-        for label_text, value in _LANGUAGES:
-            language.addItem(label_text, value)
-        language.setCurrentIndex(
-            max(0, next((i for i, (_, v) in enumerate(_LANGUAGES) if v == cfg.language), 0))
-        )
-        language.currentIndexChanged.connect(lambda i: self._save(language=language.itemData(i)))
-        row("Language", language)
+        output = section("Output")
 
         injection = QComboBox()
         injection.addItem("Type (SendInput)", "type")
         injection.addItem("Clipboard paste", "clipboard")
         injection.setCurrentIndex(0 if cfg.injection == "type" else 1)
         injection.currentIndexChanged.connect(lambda i: self._save(injection=injection.itemData(i)))
-        row("Text injection", injection)
+        row(output, "Text injection", injection)
+
+        feedback = section("Feedback")
 
         linger = QDoubleSpinBox()
         linger.setRange(0.0, 30.0)
@@ -484,20 +534,43 @@ class MainWindow(QWidget):
         linger.setSuffix(" s")
         linger.setValue(cfg.pill_linger_s)
         linger.valueChanged.connect(lambda v: self._save(pill_linger_s=v))
-        row("Pill linger", linger, "0 disables the pill")
+        row(feedback, "Pill linger", linger, "0 disables the pill")
 
         cues = QCheckBox("Play sound cues on record start/stop")
         cues.setChecked(cfg.sound_cues)
         cues.toggled.connect(lambda on: self._save(sound_cues=on))
-        layout.addWidget(cues)
+        feedback.addWidget(cues)
+
+        system = section("System")
 
         startup = QCheckBox("Launch caspr when you log in")
         startup.setChecked(startup_enabled())
         startup.toggled.connect(lambda on: set_startup(on))
-        layout.addWidget(startup)
+        system.addWidget(startup)
 
         layout.addStretch()
-        return page
+        return scroll
+
+    def _set_hotkey(self, chord: str) -> None:
+        if not parse_chord(chord):
+            return
+        self._save(hotkey=chord)
+        self._chord_label.setText(_pretty_chord(chord))
+
+    def _capture_hotkey(self) -> None:
+        # Stop push-to-talk while the capture hook runs: holding the current
+        # chord during capture must not start a dictation.
+        self.capture_active.emit(True)
+        try:
+            dialog = HotkeyCaptureDialog(self)
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.chord:
+                self._set_hotkey(dialog.chord)
+        finally:
+            self.capture_active.emit(False)
+
+    def _apply_mic(self, device: int | None) -> None:
+        self._save(input_device=device)
+        self._controller.set_input_device(device)
 
     def _save(self, **changes) -> None:
         cfg = self._controller.cfg
