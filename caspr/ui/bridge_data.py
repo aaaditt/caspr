@@ -1,14 +1,60 @@
-"""JSON-safe payload builders for the web bridge. Pure functions, unit-tested."""
+"""JSON-safe payload builders and setting routing for the web bridge.
+Pure functions, unit-tested."""
 
 from __future__ import annotations
 
 import getpass
 
 from ..audio import list_input_devices
+from ..config import save_config
 from ..history import Entry
-from ..hotkeys import pretty_chord
+from ..hotkeys import parse_chord, pretty_chord
 from ..launcher import startup_enabled
 from ..spellcheck import flag_unknown_words
+
+_SETTING_KEYS = {
+    "model",
+    "device",
+    "language",
+    "injection",
+    "pill_linger_s",
+    "sound_cues",
+    "input_device",
+    "hotkey",
+}
+
+
+def apply_setting(controller, key: str, value) -> str:
+    """Persist one setting and trigger its side effect.
+
+    Returns the follow-up performed: "reload" (model/device hot-reload),
+    "mic" (recorder device swap), "hotkey" (caller must re-arm), or "".
+    Unknown keys and invalid values are ignored (returns "").
+    """
+    if key not in _SETTING_KEYS:
+        return ""
+    if key == "language":
+        value = value or None
+    elif key == "input_device":
+        value = None if value is None else int(value)
+    elif key == "pill_linger_s":
+        value = float(value)
+    elif key == "sound_cues":
+        value = bool(value)
+    elif key == "hotkey":
+        if not isinstance(value, str) or not parse_chord(value):
+            return ""
+    setattr(controller.cfg, key, value)
+    save_config(controller.cfg, controller.config_path)
+    if key in ("model", "device"):
+        controller.reload_model()
+        return "reload"
+    if key == "input_device":
+        controller.set_input_device(value)
+        return "mic"
+    if key == "hotkey":
+        return "hotkey"
+    return ""
 
 
 def entry_dict(entry: Entry, cfg) -> dict:

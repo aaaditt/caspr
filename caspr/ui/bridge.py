@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QDialog
 
-from .bridge_data import bootstrap, dictionary_dict, history_list
+from ..launcher import set_startup
+from .bridge_data import apply_setting, bootstrap, dictionary_dict, history_list
 
 _EDGES = {
     "left": Qt.Edge.LeftEdge,
@@ -29,6 +31,8 @@ class Bridge(QObject):
     dictation_done = Signal(str, "QVariantList")
     paused_changed = Signal(bool)
     data_changed = Signal()  # history/dictionary mutated — pages should refetch
+    hotkey_changed = Signal(str)  # relayed by Shell so __main__ re-arms PTT
+    capture_active = Signal(bool)  # True while the capture dialog's hook is live
 
     def __init__(self, window, controller):
         super().__init__(window)
@@ -86,6 +90,37 @@ class Bridge(QObject):
     def forget_rule(self, wrong: str) -> None:
         self._controller.forget_replacement(wrong)
         self.data_changed.emit()
+
+    # -- settings ------------------------------------------------------------
+
+    @Slot(str, "QVariant")
+    def set_setting(self, key: str, value) -> None:
+        if apply_setting(self._controller, key, value) == "hotkey":
+            self.hotkey_changed.emit(self._controller.cfg.hotkey)
+
+    @Slot(result="QVariant")
+    def capture_hotkey(self):
+        """Modal Qt capture (global hooks can't live in the web layer).
+        Push-to-talk is suspended around it via capture_active."""
+        from .hotkey_capture import HotkeyCaptureDialog
+
+        self.capture_active.emit(True)
+        try:
+            dialog = HotkeyCaptureDialog()
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.chord:
+                self.set_setting("hotkey", dialog.chord)
+                return dialog.chord
+            return None
+        finally:
+            self.capture_active.emit(False)
+
+    @Slot(bool)
+    def set_startup(self, enabled: bool) -> None:
+        set_startup(enabled)
+
+    @Slot()
+    def toggle_pause(self) -> None:
+        self._controller.toggle_pause()
 
     # -- window controls (frameless chrome) ---------------------------------
 

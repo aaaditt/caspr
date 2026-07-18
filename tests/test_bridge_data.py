@@ -3,9 +3,15 @@
 import json
 
 from caspr.app import AppController
-from caspr.config import Config
+from caspr.config import Config, load_config
 from caspr.history import Entry
-from caspr.ui.bridge_data import bootstrap, dictionary_dict, entry_dict, history_list
+from caspr.ui.bridge_data import (
+    apply_setting,
+    bootstrap,
+    dictionary_dict,
+    entry_dict,
+    history_list,
+)
 
 BOOT_KEYS = {
     "user", "state", "paused", "hotkey", "hotkey_pretty", "model", "device",
@@ -42,6 +48,50 @@ def test_dictionary_dict_shape():
     d = dictionary_dict(cfg)
     json.dumps(d)
     assert d == {"terms": ["caspr"], "rules": [{"wrong": "Adit", "right": "Aadit"}]}
+
+
+def _controller(tmp_path, monkeypatch):
+    c = AppController(Config(), config_path=tmp_path / "cfg.json", history_path=tmp_path / "h.db")
+    calls = []
+    monkeypatch.setattr(c, "reload_model", lambda: calls.append("reload"))
+    monkeypatch.setattr(c, "set_input_device", lambda d: calls.append(("mic", d)))
+    return c, calls
+
+
+def test_apply_setting_model_reloads_and_persists(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "model", "base") == "reload"
+        assert calls == ["reload"]
+        assert load_config(tmp_path / "cfg.json").model == "base"
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_mic_and_language_coercion(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "input_device", 9) == "mic"
+        assert calls == [("mic", 9)]
+        assert apply_setting(c, "language", "") == ""  # "" persists as None
+        assert c.cfg.language is None
+        assert apply_setting(c, "input_device", None) == "mic"
+        assert c.cfg.input_device is None
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_rejects_unknown_and_bad_hotkey(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "not_a_key", 1) == ""
+        assert apply_setting(c, "hotkey", "++") == ""
+        assert c.cfg.hotkey == "ctrl+windows"  # untouched
+        assert apply_setting(c, "hotkey", "ctrl+alt") == "hotkey"
+        assert c.cfg.hotkey == "ctrl+alt"
+        assert calls == []
+    finally:
+        c.shutdown()
 
 
 def test_bootstrap_shape(tmp_path):

@@ -42,6 +42,9 @@ class Shell(QWidget):
         self._bridge = Bridge(self, controller)
         self._channel.registerObject("caspr", self._bridge)
         page.setWebChannel(self._channel)
+        # __main__ wires PTT re-arm and capture suspension to the Shell's signals
+        self._bridge.hotkey_changed.connect(self.hotkey_changed)
+        self._bridge.capture_active.connect(self.capture_active)
 
         self._round_corners()
 

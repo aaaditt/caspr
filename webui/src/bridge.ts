@@ -54,6 +54,10 @@ export interface CasprApi {
   learn_term(term: string): void
   forget_term(term: string): void
   forget_rule(wrong: string): void
+  set_setting(key: string, value: unknown): void
+  capture_hotkey(cb: (chord: string | null) => void): void
+  set_startup(enabled: boolean): void
+  toggle_pause(): void
   state_changed: QSignal<(state: string, detail: string) => void>
   input_level: QSignal<(level: number) => void>
   dictation_done: QSignal<(text: string, spans: [number, number][]) => void>
