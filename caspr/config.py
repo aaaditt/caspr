@@ -23,6 +23,7 @@ class Config:
     replacements: dict[str, str] = field(default_factory=dict)  # wrong word -> correct
     flag_zipf_threshold: float = 3.0  # words rarer than this get flagged in the UI
     pill_linger_s: float = 6.0  # 0 disables the post-dictation pill
+    sound_cues: bool = True  # soft ticks on record start/stop
 
 
 def default_config_path() -> Path:

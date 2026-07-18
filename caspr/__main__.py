@@ -151,6 +151,11 @@ def main() -> int:
             lambda text: CorrectionPopup(controller, text).exec()
         )
 
+        from .sounds import SoundCues
+
+        cues = SoundCues(cfg)
+        controller.state_changed.connect(cues.on_state)
+
         ptt_holder: dict[str, PushToTalk] = {}
 
         def arm(chord: str) -> None:

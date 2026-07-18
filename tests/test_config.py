@@ -43,6 +43,7 @@ def test_learning_defaults():
     assert cfg.replacements == {}
     assert cfg.flag_zipf_threshold == 3.0
     assert cfg.pill_linger_s == 6.0
+    assert cfg.sound_cues is True
 
 
 def test_replacements_roundtrip(tmp_path):

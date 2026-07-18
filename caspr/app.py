@@ -38,6 +38,7 @@ class AppController(QObject):
     # final injected text, flagged spans (list[tuple[int, int]])
     dictation_done = Signal(str, object)
     paused_changed = Signal(bool)
+    notify = Signal(str, str)  # title, body — surfaced as a tray notification
 
     def __init__(self, cfg: Config, config_path=None, history_path=None):
         super().__init__()
@@ -49,6 +50,7 @@ class AppController(QObject):
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._lock = threading.Lock()
         self._state = "loading"
+        self._reload_pending = False
         self.paused = False
 
     # -- lifecycle --------------------------------------------------------
@@ -63,6 +65,17 @@ class AppController(QObject):
         self.paused = not self.paused
         self._set_state(self._state, "paused" if self.paused else "")
         self.paused_changed.emit(self.paused)
+
+    def reload_model(self) -> None:
+        """Swap to cfg.model/cfg.device without a restart. Safe mid-transcription:
+        the single-worker executor serializes the reload behind in-flight jobs.
+        Mid-recording it is deferred until that dictation's pipeline finishes."""
+        with self._lock:
+            if self._state == "recording":
+                self._reload_pending = True
+                return
+        self._set_state("loading", f"loading {self.cfg.model}…")
+        self._executor.submit(self._load_model)
 
     # -- learning (explicit user actions only) -----------------------------
 
@@ -92,6 +105,8 @@ class AppController(QObject):
     def _load_model(self) -> None:
         from .stt import Transcriber  # heavy import off the main thread
 
+        # Free the old model first: 4 GB VRAM can't hold two at once on reload.
+        self._transcriber = None
         try:
             transcriber = Transcriber(self.cfg.model, self.cfg.device)
             # First CUDA inference compiles kernels; warm up on silence now so
@@ -103,6 +118,7 @@ class AppController(QObject):
         except Exception as e:
             log.exception("model load failed")
             self._set_state("error", f"model load failed: {e}")
+            self.notify.emit("caspr can't load the model", str(e))
 
     # -- hotkey callbacks (keyboard hook thread) ---------------------------
 
@@ -118,6 +134,7 @@ class AppController(QObject):
         except Exception as e:
             log.exception("could not start recording")
             self._set_state("idle", f"mic error: {e}")
+            self.notify.emit("Microphone error", str(e))
 
     def on_ptt_release(self) -> None:
         with self._lock:
@@ -171,6 +188,12 @@ class AppController(QObject):
         except Exception as e:
             log.exception("pipeline failed")
             self._set_state("idle", f"error: {e}")
+            self.notify.emit("Dictation failed", str(e))
+        finally:
+            if self._reload_pending:  # model change requested mid-recording
+                self._reload_pending = False
+                self._set_state("loading", f"loading {self.cfg.model}…")
+                self._executor.submit(self._load_model)
 
     # -- helpers -------------------------------------------------------------
 

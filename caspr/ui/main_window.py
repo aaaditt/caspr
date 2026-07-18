@@ -448,8 +448,19 @@ class MainWindow(QWidget):
         model.setCurrentIndex(
             max(0, next((i for i, (_, v) in enumerate(_MODELS) if v == cfg.model), 1))
         )
-        model.currentIndexChanged.connect(lambda i: self._save(model=model.itemData(i)))
-        row("Whisper model", model, "restart to apply")
+        model.currentIndexChanged.connect(
+            lambda i: self._apply_transcriber(model=model.itemData(i))
+        )
+        row("Whisper model", model, "applies immediately")
+
+        device = QComboBox()
+        for label_text, value in (("Auto", "auto"), ("GPU (CUDA)", "cuda"), ("CPU", "cpu")):
+            device.addItem(label_text, value)
+        device.setCurrentIndex(max(0, device.findData(cfg.device)))
+        device.currentIndexChanged.connect(
+            lambda i: self._apply_transcriber(device=device.itemData(i))
+        )
+        row("Compute device", device, "applies immediately")
 
         language = QComboBox()
         for label_text, value in _LANGUAGES:
@@ -458,7 +469,7 @@ class MainWindow(QWidget):
             max(0, next((i for i, (_, v) in enumerate(_LANGUAGES) if v == cfg.language), 0))
         )
         language.currentIndexChanged.connect(lambda i: self._save(language=language.itemData(i)))
-        row("Language", language, "restart to apply")
+        row("Language", language)
 
         injection = QComboBox()
         injection.addItem("Type (SendInput)", "type")
@@ -474,6 +485,11 @@ class MainWindow(QWidget):
         linger.setValue(cfg.pill_linger_s)
         linger.valueChanged.connect(lambda v: self._save(pill_linger_s=v))
         row("Pill linger", linger, "0 disables the pill")
+
+        cues = QCheckBox("Play sound cues on record start/stop")
+        cues.setChecked(cfg.sound_cues)
+        cues.toggled.connect(lambda on: self._save(sound_cues=on))
+        layout.addWidget(cues)
 
         startup = QCheckBox("Launch caspr when you log in")
         startup.setChecked(startup_enabled())
@@ -491,3 +507,8 @@ class MainWindow(QWidget):
         if "hotkey" in changes:
             self._hint.setText(_hotkey_hint(cfg.hotkey))
             self.hotkey_changed.emit(cfg.hotkey)
+
+    def _apply_transcriber(self, **changes) -> None:
+        """Model/device changes hot-reload the transcriber — no restart."""
+        self._save(**changes)
+        self._controller.reload_model()

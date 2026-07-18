@@ -49,6 +49,10 @@ class Tray(QSystemTrayIcon):
         self._last_state = "loading"
         controller.state_changed.connect(self._on_state)
         controller.paused_changed.connect(self._on_paused)
+        controller.notify.connect(self._on_notify)
+
+    def _on_notify(self, title: str, body: str) -> None:
+        self.showMessage(title, body, QSystemTrayIcon.MessageIcon.Warning, 6000)
 
     def _on_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger and self._on_open:
