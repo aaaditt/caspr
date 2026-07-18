@@ -44,6 +44,7 @@ export function CasprProvider({ children }: { children: React.ReactNode }) {
   const [detail, setDetail] = useState('')
   const [paused, setPaused] = useState(false)
   const [levels, setLevels] = useState<number[]>([])
+  const [api, setApi] = useState<CasprApi | null>(null)
   const apiRef = useRef<CasprApi | null>(null)
 
   const refresh = useCallback(() => {
@@ -56,24 +57,26 @@ export function CasprProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let live = true
-    void initBridge().then((api) => {
+    void initBridge().then((bridgeApi) => {
       if (!live) return
-      apiRef.current = api
-      if (!api) {
+      apiRef.current = bridgeApi
+      setApi(bridgeApi)
+      if (!bridgeApi) {
         setState('idle') // browser dev: mock mode
         return
       }
       refresh()
-      api.state_changed.connect((s, d) => {
+      bridgeApi.state_changed.connect((s, d) => {
         setState(s)
         setDetail(d)
         if (s !== 'recording') setLevels([])
       })
-      api.input_level.connect((level) => {
+      bridgeApi.input_level.connect((level) => {
         setLevels((prev) => [...prev.slice(-(LEVEL_BARS - 1)), Math.min(1, level * 2.2)])
       })
-      api.paused_changed.connect((p) => setPaused(p))
-      api.dictation_done.connect(() => refresh())
+      bridgeApi.paused_changed.connect((p) => setPaused(p))
+      bridgeApi.dictation_done.connect(() => refresh())
+      bridgeApi.data_changed.connect(() => refresh())
     })
     return () => {
       live = false
@@ -81,7 +84,7 @@ export function CasprProvider({ children }: { children: React.ReactNode }) {
   }, [refresh])
 
   return (
-    <Ctx.Provider value={{ boot, state, detail, paused, levels, api: apiRef.current, refresh }}>
+    <Ctx.Provider value={{ boot, state, detail, paused, levels, api, refresh }}>
       {children}
     </Ctx.Provider>
   )

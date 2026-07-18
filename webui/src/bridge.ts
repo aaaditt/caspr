@@ -35,16 +35,30 @@ interface QSignal<T extends (...args: never[]) => void> {
 /** The Python Bridge object registered as "caspr" on the web channel.
  *  Slot return values arrive via a trailing callback (qwebchannel style).
  *  Outside Qt (plain browser dev), initBridge resolves null → mock mode. */
+export interface Dictionary {
+  terms: string[]
+  rules: { wrong: string; right: string }[]
+}
+
 export interface CasprApi {
   win_minimize(): void
   win_close(): void
   win_drag(): void
   win_resize(edge: string): void
   get_bootstrap(cb: (boot: Bootstrap) => void): void
+  get_history(query: string, cb: (entries: Entry[]) => void): void
+  delete_entry(id: number): void
+  copy_text(text: string): void
+  correct(text: string): void
+  get_dictionary(cb: (d: Dictionary) => void): void
+  learn_term(term: string): void
+  forget_term(term: string): void
+  forget_rule(wrong: string): void
   state_changed: QSignal<(state: string, detail: string) => void>
   input_level: QSignal<(level: number) => void>
   dictation_done: QSignal<(text: string, spans: [number, number][]) => void>
   paused_changed: QSignal<(paused: boolean) => void>
+  data_changed: QSignal<() => void>
 }
 
 let api: CasprApi | null = null

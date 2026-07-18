@@ -7,8 +7,9 @@ controls. Payloads are built by the pure helpers in bridge_data.
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtGui import QGuiApplication
 
-from .bridge_data import bootstrap
+from .bridge_data import bootstrap, dictionary_dict, history_list
 
 _EDGES = {
     "left": Qt.Edge.LeftEdge,
@@ -27,6 +28,7 @@ class Bridge(QObject):
     input_level = Signal(float)
     dictation_done = Signal(str, "QVariantList")
     paused_changed = Signal(bool)
+    data_changed = Signal()  # history/dictionary mutated — pages should refetch
 
     def __init__(self, window, controller):
         super().__init__(window)
@@ -45,6 +47,45 @@ class Bridge(QObject):
     @Slot(result="QVariantMap")
     def get_bootstrap(self) -> dict:
         return bootstrap(self._controller)
+
+    @Slot(str, result="QVariantList")
+    def get_history(self, query: str) -> list:
+        return history_list(self._controller, query)
+
+    @Slot(int)
+    def delete_entry(self, entry_id: int) -> None:
+        self._controller.history.delete(entry_id)
+        self.data_changed.emit()
+
+    @Slot(str)
+    def copy_text(self, text: str) -> None:
+        QGuiApplication.clipboard().setText(text)
+
+    @Slot(str)
+    def correct(self, text: str) -> None:
+        from .correct import CorrectionPopup  # deferred: avoids import cycle at startup
+
+        CorrectionPopup(self._controller, text).exec()
+        self.data_changed.emit()
+
+    @Slot(result="QVariantMap")
+    def get_dictionary(self) -> dict:
+        return dictionary_dict(self._controller.cfg)
+
+    @Slot(str)
+    def learn_term(self, term: str) -> None:
+        self._controller.learn_term(term)
+        self.data_changed.emit()
+
+    @Slot(str)
+    def forget_term(self, term: str) -> None:
+        self._controller.forget_term(term)
+        self.data_changed.emit()
+
+    @Slot(str)
+    def forget_rule(self, wrong: str) -> None:
+        self._controller.forget_replacement(wrong)
+        self.data_changed.emit()
 
     # -- window controls (frameless chrome) ---------------------------------
 

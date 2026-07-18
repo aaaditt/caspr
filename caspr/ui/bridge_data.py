@@ -21,6 +21,21 @@ def entry_dict(entry: Entry, cfg) -> dict:
     }
 
 
+def history_list(controller, query: str = "") -> list[dict]:
+    query = query.strip()
+    entries = (
+        controller.history.search(query) if query else controller.history.recent(limit=200)
+    )
+    return [entry_dict(e, controller.cfg) for e in entries]
+
+
+def dictionary_dict(cfg) -> dict:
+    return {
+        "terms": list(cfg.dictionary),
+        "rules": [{"wrong": wrong, "right": right} for wrong, right in cfg.replacements.items()],
+    }
+
+
 def bootstrap(controller) -> dict:
     """Everything the React app needs on load, in one round trip."""
     cfg = controller.cfg
