@@ -28,6 +28,24 @@ words, right-click a red word to add it to your dictionary or create an
 
 `uv run caspr` runs attached to the terminal with console logs (dev mode).
 
+## STT engines
+
+Two engines, routed by Settings → Transcription → Engine:
+
+- **Parakeet** (nvidia/parakeet-tdt-0.6b-v2 via onnx-asr) — English only, ~5x
+  faster than whisper-large-v3-turbo on this machine (≈0.3s vs ≈1.8s per clip)
+  with better English accuracy (Open ASR leaderboard 6.05 vs ~7.8 WER). Runs
+  on CPU, leaving the GPU free. Dictionary hints don't apply on this path
+  (no prompt biasing); replacement rules still do.
+- **Whisper** (faster-whisper) — all languages incl. Hindi and auto-detect.
+
+**Auto** (default) uses Parakeet when Language is pinned to English, Whisper
+otherwise. First Parakeet use downloads ~1.2 GB from Hugging Face.
+
+Note: better Hindi exists (shunyalabs/pingala-v1-universal beats
+whisper-large-v3 on the Vaani benchmark) but the repo is gated — request
+access on Hugging Face if wanted.
+
 ## Web UI (Velvet)
 
 The main window is a React + Tailwind app (`webui/`) rendered by QtWebEngine

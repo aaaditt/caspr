@@ -16,6 +16,7 @@ export interface Bootstrap {
   hotkey_pretty: string
   model: string
   device: string
+  engine: string
   language: string
   injection: string
   pill_linger_s: number

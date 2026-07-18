@@ -9,6 +9,7 @@ const MOCK_BOOT: Bootstrap = {
   hotkey_pretty: 'Right Ctrl',
   model: 'large-v3-turbo',
   device: 'auto',
+  engine: 'auto',
   language: '',
   injection: 'type',
   pill_linger_s: 6,

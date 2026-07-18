@@ -79,6 +79,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (on: boolea
   )
 }
 
+const ENGINES = [
+  { value: 'auto', label: 'Auto — Parakeet for English' },
+  { value: 'parakeet', label: 'Parakeet — English, fastest' },
+  { value: 'whisper', label: 'Whisper — all languages' },
+]
 const MODELS = [
   { value: 'base', label: 'base — fastest' },
   { value: 'small', label: 'small — balanced' },
@@ -159,7 +164,10 @@ export function Settings() {
       </Section>
 
       <Section title="TRANSCRIPTION">
-        <Row label="Whisper model" note="applies immediately">
+        <Row label="Engine" note="applies immediately">
+          <Select value={boot.engine} options={ENGINES} onChange={(v) => set('engine', v)} />
+        </Row>
+        <Row label="Whisper model" note="Whisper engine only">
           <Select value={boot.model} options={MODELS} onChange={(v) => set('model', v)} />
         </Row>
         <Row label="Compute device" note="applies immediately">
