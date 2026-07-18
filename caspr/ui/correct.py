@@ -49,7 +49,7 @@ class CorrectionPopup(QDialog):
         self._highlighter = _FlagHighlighter(self._edit.document(), controller)
 
         hint = QLabel("Right-click a flagged word to teach caspr. Edits here are yours to copy.")
-        hint.setStyleSheet("color: #71717a; font-size: 12px;")
+        hint.setObjectName("caption")
 
         copy_btn = QPushButton("Copy corrected")
         copy_btn.clicked.connect(self._copy)

@@ -20,21 +20,25 @@ from PySide6.QtGui import (
     QPixmap,
 )
 
-from .style import ACCENT, BG, STATE_COLORS, SURFACE
+from .style import BG, CORAL, ACCENT, STATE_COLORS, SURFACE
 
 _SIZES = (16, 24, 32, 48, 64, 128, 256)
 
 
-def _paint_mic(painter: QPainter, size: float, color: str) -> None:
-    """Mic capsule + cradle arc + stand, in unit-scaled coordinates."""
+def _paint_mic(painter: QPainter, size: float) -> None:
+    """Mic capsule + cradle arc + stand in the coral→amber Velvet gradient."""
     s = size
-    pen = QPen(QColor(color))
+    gradient = QLinearGradient(0, s * 0.18, 0, s * 0.80)
+    gradient.setColorAt(0.0, QColor(CORAL))
+    gradient.setColorAt(1.0, QColor(ACCENT))
+
+    pen = QPen(QColor(ACCENT))
     pen.setWidthF(max(1.0, s * 0.07))
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
 
     body = QRectF(s * 0.38, s * 0.18, s * 0.24, s * 0.34)
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor(color))
+    painter.setBrush(gradient)
     painter.drawRoundedRect(body, body.width() / 2, body.width() / 2)
 
     painter.setPen(pen)
@@ -55,14 +59,14 @@ def _app_pixmap(size: int) -> QPixmap:
     gradient.setColorAt(0.0, QColor(SURFACE))
     gradient.setColorAt(1.0, QColor(BG))
     painter.setBrush(gradient)
-    painter.setPen(QColor("#2e2f38"))
+    painter.setPen(QColor("#3a2c22"))
     radius = size * 0.22
     inset = max(0.5, size * 0.02)
     painter.drawRoundedRect(
         QRectF(inset, inset, size - 2 * inset, size - 2 * inset), radius, radius
     )
 
-    _paint_mic(painter, size, ACCENT)
+    _paint_mic(painter, size)
     painter.end()
     return pixmap
 

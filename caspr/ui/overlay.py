@@ -10,11 +10,11 @@ from collections import deque
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QColor, QGuiApplication, QPainter
+from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from .icons import glyph_icon
-from .style import ACCENT, FG, FLAG, SURFACE, flagged_html
+from .style import ACCENT, CORAL, FG, FLAG, SURFACE, flagged_html
 
 FADES_ENABLED = True  # kill switch: opacity animation on translucent windows
 _SHADOW = 10  # transparent margin around the capsule for the painted shadow
@@ -82,9 +82,15 @@ class Waveform(QWidget):
         for i, value in enumerate(self._display):
             bar_h = 3.0 + max(0.0, min(1.0, value)) * (h - 6.0)
             x = i * (w + gap)
-            color = QColor(ACCENT)
-            color.setAlpha(int(255 - 165 * (abs(i - mid) / mid)))  # fade toward edges
-            painter.setBrush(color)
+            alpha = int(255 - 165 * (abs(i - mid) / mid))  # fade toward edges
+            top = QColor(CORAL)
+            top.setAlpha(alpha)
+            bottom = QColor(ACCENT)
+            bottom.setAlpha(alpha)
+            gradient = QLinearGradient(0, (h - bar_h) / 2, 0, (h + bar_h) / 2)
+            gradient.setColorAt(0.0, top)
+            gradient.setColorAt(1.0, bottom)
+            painter.setBrush(gradient)
             painter.drawRoundedRect(QRectF(x, (h - bar_h) / 2, w, bar_h), w / 2, w / 2)
 
 

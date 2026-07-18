@@ -1,30 +1,30 @@
-"""Shared look: Wispr-like — dark, minimal, rounded, calm. One accent."""
+"""Shared look for the remaining Qt surfaces (pill, dialogs, tray icons):
+Velvet — warm espresso, cream text, coral→amber accents. The main window's
+React app carries the same tokens in webui/src/index.css."""
 
 from __future__ import annotations
 
 import html
 
-BG = "#131316"
-SURFACE = "#1c1d22"
-ACCENT = "#22d3ee"
-FG = "#f4f4f5"
-MUTED = "#8b8b93"
-FLAG = "#ff6b6b"
+BG = "#151110"
+SURFACE = "#1c1715"
+RAISED = "#241d1a"
+HAIRLINE = "#2a221d"
+ACCENT = "#ffb74d"  # amber — solid accent for Qt widgets
+CORAL = "#ff8a65"  # gradient partner (waveform, icons)
+FG = "#f6efe7"
+MUTED = "#9c8f85"
+FLAG = "#ff5c49"
 
-# One source of truth for state → color, shared by tray, window, and icons.
+# One source of truth for state → color, shared by tray, icons, and dialogs.
 STATE_COLORS = {
     "loading": MUTED,
     "idle": ACCENT,
-    "recording": "#ef4444",
-    "processing": "#f59e0b",
-    "error": "#dc2626",
-    "paused": "#eab308",
+    "recording": "#ff5c49",
+    "processing": "#e8a13c",
+    "error": "#e05252",
+    "paused": "#b8a06a",
 }
-
-_STATUS_DOT_QSS = "\n".join(
-    f'QLabel#statusDot[state="{state}"] {{ color: {color}; }}'
-    for state, color in STATE_COLORS.items()
-)
 
 APP_QSS = f"""
 QWidget {{
@@ -38,70 +38,38 @@ QLabel#h1 {{ font-size: 22px; font-weight: 600; }}
 QLabel#caption {{ color: {MUTED}; font-size: 12px; }}
 QLabel#muted {{ color: {MUTED}; }}
 QLabel#note {{ color: {MUTED}; font-size: 11px; }}
-QLabel#statValue {{ font-size: 26px; font-weight: 700; }}
-QLabel#statusDot {{ font-size: 16px; color: {MUTED}; }}
-{_STATUS_DOT_QSS}
 QFrame#card {{
     background: {SURFACE};
-    border: 1px solid #26272e;
+    border: 1px solid {HAIRLINE};
     border-radius: 12px;
 }}
-QFrame#sidebarFrame {{ background: {BG}; }}
-QLabel#brandName {{ font-size: 16px; font-weight: 600; }}
-QListWidget#sidebar {{
-    background: {BG};
-    border: none;
-    padding-top: 8px;
-    outline: none;
-}}
-QListWidget#sidebar::item {{
-    padding: 10px 18px;
-    border-radius: 8px;
-    margin: 2px 10px;
-    color: {MUTED};
-}}
-QListWidget#sidebar::item:hover {{
-    background: #202128;
-    color: {FG};
-}}
-QListWidget#sidebar::item:selected {{
-    background: {SURFACE};
-    color: {FG};
-}}
 QPushButton {{
-    background: {ACCENT}; color: #06272c; border: none; border-radius: 8px;
+    background: {ACCENT}; color: #2b1a09; border: none; border-radius: 8px;
     padding: 7px 16px; font-weight: 600;
 }}
-QPushButton:hover {{ background: #67e2f4; }}
+QPushButton:hover {{ background: #ffc76e; }}
 QPushButton[flat="true"] {{ background: transparent; color: {ACCENT}; }}
 QTextEdit, QListWidget, QLineEdit, QComboBox, QDoubleSpinBox {{
     background: {SURFACE}; color: {FG};
-    border: 1px solid #26272e; border-radius: 10px; padding: 8px;
-    selection-background-color: {ACCENT}; selection-color: #06272c;
+    border: 1px solid {HAIRLINE}; border-radius: 10px; padding: 8px;
+    selection-background-color: {ACCENT}; selection-color: #2b1a09;
 }}
 QComboBox::drop-down {{ border: none; }}
 QComboBox QAbstractItemView {{
-    background: {SURFACE}; color: {FG}; border: 1px solid #26272e;
+    background: {SURFACE}; color: {FG}; border: 1px solid {HAIRLINE};
 }}
 QCheckBox {{ background: transparent; }}
-QMenu {{ background: {SURFACE}; color: {FG}; border: 1px solid #26272e; }}
-QMenu::item:selected {{ background: {BG}; }}
-QWidget#transparentRow {{ background: transparent; }}
-QToolButton {{
-    background: transparent; color: {ACCENT}; border: 1px solid #26272e;
-    border-radius: 8px; padding: 6px 12px;
-}}
-QToolButton::menu-indicator {{ image: none; }}
-QScrollArea {{ background: {BG}; border: none; }}
+QMenu {{ background: {SURFACE}; color: {FG}; border: 1px solid {HAIRLINE}; }}
+QMenu::item:selected {{ background: {RAISED}; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
-QScrollBar::handle:vertical {{ background: #2e2f38; border-radius: 4px; min-height: 30px; }}
+QScrollBar::handle:vertical {{ background: #2e2620; border-radius: 4px; min-height: 30px; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
 """
 
 
 def flagged_html(text: str, spans: list[tuple[int, int]]) -> str:
-    """Escape text and wrap flagged spans in red for rich-text labels."""
+    """Escape text and wrap flagged spans in ember for rich-text labels."""
     out, prev = [], 0
     for start, end in spans:
         out.append(html.escape(text[prev:start]))
