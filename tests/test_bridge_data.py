@@ -17,6 +17,10 @@ BOOT_KEYS = {
     "user", "state", "paused", "hotkey", "hotkey_pretty", "model", "device",
     "engine", "language", "injection", "pill_linger_s", "sound_cues",
     "input_device", "mics", "startup", "stats", "recent",
+    "hotkey_toggle_dictation", "hotkey_toggle_dictation_pretty",
+    "hotkey_cancel_dictation", "hotkey_cancel_dictation_pretty",
+    "hotkey_mute_mic", "hotkey_mute_mic_pretty",
+    "hotkey_open_history", "hotkey_open_history_pretty",
 }
 
 
@@ -109,5 +113,31 @@ def test_bootstrap_shape(tmp_path):
         assert boot["hotkey_pretty"] == "Ctrl + Windows"
         assert boot["stats"]["today"] == 1
         assert boot["recent"][0]["text"] == "words here"
+    finally:
+        controller.shutdown()
+
+
+def test_apply_setting_optional_hotkeys_accept_empty_and_valid(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "hotkey_mute_mic", "ctrl+alt+m") == "hotkey"
+        assert c.cfg.hotkey_mute_mic == "ctrl+alt+m"
+        assert apply_setting(c, "hotkey_mute_mic", "") == "hotkey"
+        assert c.cfg.hotkey_mute_mic == ""
+        assert apply_setting(c, "hotkey_cancel_dictation", "++") == ""
+        assert c.cfg.hotkey_cancel_dictation == ""  # rejected, untouched
+        assert calls == []
+    finally:
+        c.shutdown()
+
+
+def test_bootstrap_includes_optional_hotkeys_unbound_by_default(tmp_path):
+    controller = AppController(
+        Config(), config_path=tmp_path / "cfg.json", history_path=tmp_path / "h.db"
+    )
+    try:
+        boot = bootstrap(controller)
+        assert boot["hotkey_mute_mic"] == ""
+        assert boot["hotkey_mute_mic_pretty"] == ""
     finally:
         controller.shutdown()

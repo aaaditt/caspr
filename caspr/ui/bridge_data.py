@@ -22,6 +22,17 @@ _SETTING_KEYS = {
     "sound_cues",
     "input_device",
     "hotkey",
+    "hotkey_toggle_dictation",
+    "hotkey_cancel_dictation",
+    "hotkey_mute_mic",
+    "hotkey_open_history",
+}
+
+_OPTIONAL_HOTKEY_KEYS = {
+    "hotkey_toggle_dictation",
+    "hotkey_cancel_dictation",
+    "hotkey_mute_mic",
+    "hotkey_open_history",
 }
 
 
@@ -45,6 +56,11 @@ def apply_setting(controller, key: str, value) -> str:
     elif key == "hotkey":
         if not isinstance(value, str) or not parse_chord(value):
             return ""
+    elif key in _OPTIONAL_HOTKEY_KEYS:
+        if not isinstance(value, str):
+            return ""
+        if value and not parse_chord(value):
+            return ""
     setattr(controller.cfg, key, value)
     save_config(controller.cfg, controller.config_path)
     # language steers auto engine routing, so it reloads too
@@ -54,7 +70,7 @@ def apply_setting(controller, key: str, value) -> str:
     if key == "input_device":
         controller.set_input_device(value)
         return "mic"
-    if key == "hotkey":
+    if key == "hotkey" or key in _OPTIONAL_HOTKEY_KEYS:
         return "hotkey"
     return ""
 
@@ -94,6 +110,14 @@ def bootstrap(controller) -> dict:
         "paused": controller.paused,
         "hotkey": cfg.hotkey,
         "hotkey_pretty": pretty_chord(cfg.hotkey),
+        "hotkey_toggle_dictation": cfg.hotkey_toggle_dictation,
+        "hotkey_toggle_dictation_pretty": pretty_chord(cfg.hotkey_toggle_dictation),
+        "hotkey_cancel_dictation": cfg.hotkey_cancel_dictation,
+        "hotkey_cancel_dictation_pretty": pretty_chord(cfg.hotkey_cancel_dictation),
+        "hotkey_mute_mic": cfg.hotkey_mute_mic,
+        "hotkey_mute_mic_pretty": pretty_chord(cfg.hotkey_mute_mic),
+        "hotkey_open_history": cfg.hotkey_open_history,
+        "hotkey_open_history_pretty": pretty_chord(cfg.hotkey_open_history),
         "model": cfg.model,
         "device": cfg.device,
         "engine": cfg.engine,
