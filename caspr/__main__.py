@@ -57,6 +57,15 @@ def main() -> int:
         action="store_true",
         help="install the 'caspr' command on PATH, then exit",
     )
+    parser.add_argument(
+        "--server",
+        action="store_true",
+        help="headless server mode: WebSocket + pill overlay (for Electron)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=18321,
+        help="WebSocket port for --server mode (default: 18321)",
+    )
     args = parser.parse_args()
 
     if args.install_launcher:
@@ -75,6 +84,10 @@ def main() -> int:
         cfg.device = args.device
     if args.hotkey:
         cfg.hotkey = args.hotkey
+
+    if args.server:
+        from .server import run_server
+        return run_server(cfg, port=args.port)
 
     try:  # give caspr its own taskbar identity instead of the Python interpreter's
         import ctypes
