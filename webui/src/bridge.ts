@@ -1,4 +1,10 @@
-import { QWebChannel } from 'qwebchannel'
+/**
+ * Bridge abstraction: connects to the Python backend via either
+ * Electron preload (window.caspr) or QWebChannel (legacy Qt mode).
+ *
+ * The React code calls bridge() and gets the same CasprApi interface
+ * regardless of the runtime environment.
+ */
 
 /** Payload shapes mirror caspr/ui/bridge_data.py. */
 export interface Entry {
@@ -14,6 +20,14 @@ export interface Bootstrap {
   paused: boolean
   hotkey: string
   hotkey_pretty: string
+  hotkey_toggle_dictation: string
+  hotkey_toggle_dictation_pretty: string
+  hotkey_cancel_dictation: string
+  hotkey_cancel_dictation_pretty: string
+  hotkey_mute_mic: string
+  hotkey_mute_mic_pretty: string
+  hotkey_open_history: string
+  hotkey_open_history_pretty: string
   model: string
   device: string
   engine: string
@@ -33,9 +47,6 @@ interface QSignal<T extends (...args: never[]) => void> {
   disconnect(cb: T): void
 }
 
-/** The Python Bridge object registered as "caspr" on the web channel.
- *  Slot return values arrive via a trailing callback (qwebchannel style).
- *  Outside Qt (plain browser dev), initBridge resolves null → mock mode. */
 export interface Dictionary {
   terms: string[]
   rules: { wrong: string; right: string }[]
@@ -70,15 +81,28 @@ let api: CasprApi | null = null
 
 export function initBridge(): Promise<CasprApi | null> {
   return new Promise((resolve) => {
-    const qt = (window as unknown as { qt?: { webChannelTransport?: object } }).qt
-    if (!qt?.webChannelTransport) {
-      resolve(null)
+    // 1. Try Electron preload bridge (window.caspr injected by preload.js)
+    const electronApi = (window as unknown as { caspr?: CasprApi }).caspr
+    if (electronApi) {
+      api = electronApi
+      resolve(api)
       return
     }
-    new QWebChannel(qt.webChannelTransport, (channel) => {
-      api = channel.objects.caspr as unknown as CasprApi
-      resolve(api)
-    })
+
+    // 2. Try QWebChannel (legacy Qt mode)
+    const qt = (window as unknown as { qt?: { webChannelTransport?: object } }).qt
+    if (qt?.webChannelTransport) {
+      import('qwebchannel').then(({ QWebChannel }) => {
+        new QWebChannel(qt.webChannelTransport, (channel) => {
+          api = channel.objects.caspr as unknown as CasprApi
+          resolve(api)
+        })
+      }).catch(() => resolve(null))
+      return
+    }
+
+    // 3. Neither available — mock mode (browser dev)
+    resolve(null)
   })
 }
 

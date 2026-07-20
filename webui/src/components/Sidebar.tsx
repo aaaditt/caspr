@@ -41,6 +41,7 @@ export function Sidebar({ page, onNavigate }: { page: Page; onNavigate: (p: Page
     <aside className="flex w-47 shrink-0 flex-col border-r border-hairline bg-[#181312]">
       <div
         className="flex items-baseline gap-1.5 px-5 pt-5 pb-6"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         onMouseDown={(e) => {
           if (e.button === 0) bridge()?.win_drag()
         }}
