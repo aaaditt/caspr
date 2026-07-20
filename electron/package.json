@@ -1,0 +1,18 @@
+{
+  "name": "caspr-app",
+  "version": "0.1.0",
+  "description": "caspr-flow — hold a key, speak, release — polished text appears at your cursor",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env CASPR_UI_DEV=1 electron ."
+  },
+  "dependencies": {
+    "electron-store": "^10.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^35.0.0"
+  }
+}
