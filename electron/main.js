@@ -91,11 +91,16 @@ function setupIpc() {
     }
   });
 
-  // Hotkey capture (placeholder — will be implemented in Phase 2)
+  // Hotkey capture — routed to Python's Qt dialog (can see all keys inc. Windows)
   ipcMain.handle('capture-hotkey', async () => {
-    // For now, return null. A proper implementation would show a modal
-    // dialog with a key listener.
-    return null;
+    if (!wsClient?.connected) return null;
+    try {
+      const reply = await wsClient.request({ type: 'capture_hotkey' }, 20000);
+      return reply?.chord || null;
+    } catch (err) {
+      console.error('[ipc] capture-hotkey failed:', err.message);
+      return null;
+    }
   });
 }
 

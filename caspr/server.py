@@ -159,6 +159,28 @@ class JsonWsServer:
             set_startup(msg.get("enabled", False))
             return None
 
+        if t == "capture_hotkey":
+            # Modal Qt dialog — must run on the main thread.  We use
+            # QTimer.singleShot(0) to schedule it and block the asyncio
+            # caller with a threading Event.
+            import threading
+            from PySide6.QtCore import QTimer
+            from PySide6.QtWidgets import QDialog
+
+            result_holder: dict = {"chord": None}
+            done_event = threading.Event()
+
+            def _show_dialog():
+                from .ui.hotkey_capture import HotkeyCaptureDialog
+                dlg = HotkeyCaptureDialog()
+                if dlg.exec() == QDialog.DialogCode.Accepted and dlg.chord:
+                    result_holder["chord"] = dlg.chord
+                done_event.set()
+
+            QTimer.singleShot(0, _show_dialog)
+            done_event.wait(timeout=15)  # 10s dialog timeout + margin
+            return {"type": "hotkey_captured", "chord": result_holder["chord"]}
+
         log.warning("unknown message type: %s", t)
         return {"type": "error", "message": f"unknown type: {t}"}
 

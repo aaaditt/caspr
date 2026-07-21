@@ -46,19 +46,51 @@ Note: better Hindi exists (shunyalabs/pingala-v1-universal beats
 whisper-large-v3 on the Vaani benchmark) but the repo is gated — request
 access on Hugging Face if wanted.
 
-## Web UI (Velvet)
+## Desktop App (Electron)
 
-The main window is a React + Tailwind app (`webui/`) rendered by QtWebEngine
-inside the Python process. The built bundle in `webui/dist/` is committed, so
-`uv run caspr` works without Node.
+The main window is an Electron app (`electron/`) that hosts the React + Tailwind
+UI (`webui/`). The Python backend runs as a child process, communicating over a
+local WebSocket. The pill overlay stays as a native Qt widget for reliable
+always-on-top behavior.
 
-Developing the UI needs Node 18+:
+### Quick launch
 
 ```powershell
-cd webui
-npm install
-npm run dev                        # Vite dev server with hot reload
-$env:CASPR_UI_DEV = '1'; uv run caspr   # app loads localhost:5173 instead of dist
+# First time setup
+uv sync --extra cuda                # Python deps
+cd electron && npm install && cd .. # Electron deps
+
+# Run the app
+cd electron && npm start            # or: npx electron .
 ```
 
-After UI changes, rebuild and commit the bundle: `npm run build`.
+Electron spawns `uv run caspr --server` automatically — no need to start
+Python separately.
+
+### Development mode
+
+```powershell
+cd webui && npm run dev             # Vite dev server with hot reload on :5173
+cd electron
+$env:CASPR_UI_DEV = '1'
+npm start                           # Electron loads localhost:5173 instead of dist
+```
+
+### Legacy Qt mode
+
+The old QtWebEngine path still works for quick testing without Node:
+
+```powershell
+uv run caspr                        # Opens the Qt-hosted window
+```
+
+### Server mode (headless)
+
+Run just the Python backend with the pill overlay and WebSocket server:
+
+```powershell
+uv run caspr --server               # ws://127.0.0.1:18321/ws
+uv run caspr --server --port 9999   # custom port
+```
+
+After UI changes, rebuild and commit the bundle: `cd webui && npm run build`.
