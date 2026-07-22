@@ -187,6 +187,54 @@ def test_apply_setting_double_tap_reconfigures_gesture(tmp_path, monkeypatch):
         c.shutdown()
 
 
+def test_apply_setting_groq_stt_model_persists_and_rejects_blank(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "groq_stt_model", "whisper-large-v3") == ""
+        assert c.cfg.groq_stt_model == "whisper-large-v3"
+        assert apply_setting(c, "groq_stt_model", "") == ""  # blank rejected
+        assert c.cfg.groq_stt_model == "whisper-large-v3"  # untouched
+        assert calls == []
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_key_change_reloads_only_when_engine_is_groq(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        # Default engine (auto): a key change does not reload the STT engine.
+        assert apply_setting(c, "groq_api_key", "gsk_a") == ""
+        assert calls == []
+        # Engine=groq: the cloud transcriber holds the key, so it must reload.
+        c.cfg.engine = "groq"
+        assert apply_setting(c, "groq_api_key", "gsk_b") == "reload"
+        assert calls == ["reload"]
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_smart_correct_persists(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "smart_correct", 0) == ""
+        assert c.cfg.smart_correct is False
+        assert calls == []
+    finally:
+        c.shutdown()
+
+
+def test_bootstrap_exposes_groq_stt_model_and_smart_correct(tmp_path):
+    controller = AppController(
+        Config(), config_path=tmp_path / "cfg.json", history_path=tmp_path / "h.db"
+    )
+    try:
+        boot = bootstrap(controller)
+        assert boot["groq_stt_model"] == "whisper-large-v3-turbo"
+        assert boot["smart_correct"] is True
+    finally:
+        controller.shutdown()
+
+
 def test_bootstrap_exposes_cleanup_without_leaking_key(tmp_path):
     controller = AppController(
         Config(groq_api_key="gsk_topsecret"),

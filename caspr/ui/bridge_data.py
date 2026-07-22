@@ -29,6 +29,8 @@ _SETTING_KEYS = {
     "cleanup_enabled",
     "groq_api_key",
     "groq_model",
+    "groq_stt_model",
+    "smart_correct",
     "cleanup_context_count",
     "tone_default",
     "tone_profiles",
@@ -61,11 +63,11 @@ def apply_setting(controller, key: str, value) -> str:
         value = None if value is None else int(value)
     elif key == "pill_linger_s":
         value = float(value)
-    elif key in ("sound_cues", "cleanup_enabled", "handsfree_double_tap"):
+    elif key in ("sound_cues", "cleanup_enabled", "handsfree_double_tap", "smart_correct"):
         value = bool(value)
     elif key == "groq_api_key":
         value = str(value).strip()
-    elif key == "groq_model":
+    elif key in ("groq_model", "groq_stt_model"):
         if not isinstance(value, str) or not value.strip():
             return ""
     elif key == "tone_default":
@@ -91,6 +93,11 @@ def apply_setting(controller, key: str, value) -> str:
     save_config(controller.cfg, controller.config_path)
     # language steers auto engine routing, so it reloads too
     if key in ("model", "device", "engine", "language"):
+        controller.reload_model()
+        return "reload"
+    # The cloud transcriber captures the key at build time, so when Groq is the
+    # active STT engine a key change must rebuild it to take effect live.
+    if key == "groq_api_key" and controller.cfg.engine == "groq":
         controller.reload_model()
         return "reload"
     if key == "input_device":
@@ -157,6 +164,8 @@ def bootstrap(controller) -> dict:
         "cleanup_enabled": cfg.cleanup_enabled,
         "groq_api_key_set": bool(cfg.groq_api_key.strip()),  # never echo the secret
         "groq_model": cfg.groq_model,
+        "groq_stt_model": cfg.groq_stt_model,
+        "smart_correct": cfg.smart_correct,
         "cleanup_context_count": cfg.cleanup_context_count,
         "tone_default": cfg.tone_default,
         "tone_profiles": dict(cfg.tone_profiles),
