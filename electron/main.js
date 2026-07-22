@@ -10,7 +10,6 @@ const path = require('path');
 const { PythonBackend } = require('./python');
 const { WsClient } = require('./ws-client');
 const { createTray, destroyTray } = require('./tray');
-const { HotkeyManager } = require('./hotkeys');
 
 const WS_PORT = 18321;
 const isDev = !!process.env.CASPR_UI_DEV;
@@ -18,7 +17,9 @@ const isDev = !!process.env.CASPR_UI_DEV;
 let mainWindow = null;
 let python = null;
 let wsClient = null;
-let hotkeyManager = null;
+// Global hotkeys (primary PTT + action keys) are owned by the Python backend —
+// Electron's globalShortcut can't detect key-release for hold-to-talk. The main
+// process only reacts to window actions the backend broadcasts (e.g. open history).
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -112,26 +113,20 @@ function startBackend() {
   // 2. Connect WebSocket (with auto-reconnect)
   wsClient = new WsClient(WS_PORT);
 
-  wsClient.on('connected', async () => {
-    console.log('[main] WebSocket connected — fetching bootstrap...');
-    try {
-      const reply = await wsClient.request({ type: 'get_bootstrap' });
-      if (reply?.data) {
-        // Register action hotkeys from config
-        hotkeyManager?.registerActions({
-          hotkey_toggle_dictation: reply.data.hotkey_toggle_dictation,
-          hotkey_cancel_dictation: reply.data.hotkey_cancel_dictation,
-          hotkey_mute_mic: reply.data.hotkey_mute_mic,
-          hotkey_open_history: reply.data.hotkey_open_history,
-        });
-      }
-    } catch (err) {
-      console.error('[main] bootstrap failed:', err.message);
-    }
+  wsClient.on('connected', () => {
+    console.log('[main] WebSocket connected — Python owns the global hotkeys.');
   });
 
-  // Forward WebSocket events to the renderer
+  // Forward WebSocket events to the renderer; act on window-action broadcasts.
   wsClient.on('event', (msg) => {
+    if (msg.type === 'action' && msg.name === 'open_history') {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('navigate', 'history');
+      }
+      return;
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('ws-event', msg);
     }
@@ -146,13 +141,7 @@ function startBackend() {
 app.whenReady().then(() => {
   createWindow();
   setupIpc();
-
-  hotkeyManager = new HotkeyManager(wsClient || { send: () => {} });
   startBackend();
-
-  // Re-create hotkeyManager with the real wsClient now
-  hotkeyManager = new HotkeyManager(wsClient);
-
   createTray(mainWindow, wsClient);
 });
 
@@ -166,7 +155,6 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
-  hotkeyManager?.unregisterAll();
   destroyTray();
   wsClient?.disconnect();
   python?.stop();
