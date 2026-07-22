@@ -214,17 +214,31 @@ dependencies = [
     { name = "keyboard" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "onnx-asr", extra = ["hub"] },
     { name = "pyside6" },
     { name = "pywin32" },
     { name = "sounddevice" },
-    { name = "wordfreq" },
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cudnn-cu12" },
+    { name = "onnx-asr", extra = ["hub"] },
+    { name = "wordfreq" },
+]
 cuda = [
     { name = "nvidia-cublas-cu12" },
     { name = "nvidia-cudnn-cu12" },
+]
+parakeet = [
+    { name = "onnx-asr", extra = ["hub"] },
+]
+recommended = [
+    { name = "onnx-asr", extra = ["hub"] },
+    { name = "wordfreq" },
+]
+spellcheck = [
+    { name = "wordfreq" },
 ]
 
 [package.dev-dependencies]
@@ -236,19 +250,21 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9" },
+    { name = "caspr-flow", extras = ["cuda", "parakeet", "spellcheck"], marker = "extra == 'all'" },
+    { name = "caspr-flow", extras = ["parakeet", "spellcheck"], marker = "extra == 'recommended'" },
     { name = "faster-whisper", specifier = ">=1.1" },
     { name = "groq", specifier = ">=0.11" },
     { name = "keyboard", specifier = ">=0.13.5" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "nvidia-cublas-cu12", marker = "extra == 'cuda'" },
     { name = "nvidia-cudnn-cu12", marker = "extra == 'cuda'", specifier = ">=9" },
-    { name = "onnx-asr", extras = ["hub"], specifier = ">=0.12.0" },
+    { name = "onnx-asr", extras = ["hub"], marker = "extra == 'parakeet'", specifier = ">=0.12.0" },
     { name = "pyside6", specifier = ">=6.7" },
     { name = "pywin32", specifier = ">=306" },
     { name = "sounddevice", specifier = ">=0.5" },
-    { name = "wordfreq", specifier = ">=3" },
+    { name = "wordfreq", marker = "extra == 'spellcheck'", specifier = ">=3" },
 ]
-provides-extras = ["cuda"]
+provides-extras = ["cuda", "parakeet", "spellcheck", "recommended", "all"]
 
 [package.metadata.requires-dev]
 dev = [

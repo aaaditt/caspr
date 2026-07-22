@@ -25,3 +25,12 @@ def test_spans_are_correct_offsets():
     text = "ok Aadit ok"
     ((s, e),) = flag_unknown_words(text, [])
     assert text[s:e] == "Aadit"
+
+
+def test_returns_empty_when_wordfreq_extra_missing(monkeypatch):
+    # The 'spellcheck' extra is optional; without wordfreq installed the module
+    # must silently flag nothing rather than crash on a None callable.
+    import caspr.spellcheck as sc
+
+    monkeypatch.setattr(sc, "zipf_frequency", None)
+    assert flag_unknown_words("hello Aadit here", []) == []

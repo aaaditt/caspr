@@ -3,6 +3,9 @@ name = "caspr-flow"
 version = "0.1.0"
 description = "Wispr Flow-style voice dictation for Windows: local Whisper + LLM cleanup + paste anywhere"
 requires-python = ">=3.11"
+
+# Core: just enough to run dictation (Whisper + injection + pill overlay).
+# ~1.3 GB installed.
 dependencies = [
     "PySide6>=6.7",
     "faster-whisper>=1.1",
@@ -10,16 +13,31 @@ dependencies = [
     "numpy>=1.26",
     "keyboard>=0.13.5",
     "pywin32>=306",
-    "wordfreq>=3",
-    "onnx-asr[hub]>=0.12.0",
     "aiohttp>=3.9",
     "groq>=0.11",
 ]
 
 [project.optional-dependencies]
+# NVIDIA GPU acceleration for Whisper — adds ~2 GB.
 cuda = [
     "nvidia-cublas-cu12",
     "nvidia-cudnn-cu12>=9",
+]
+# Parakeet engine (English only, ~5× faster than Whisper) — adds ~45 MB + 1.2 GB model on first use.
+parakeet = [
+    "onnx-asr[hub]>=0.12.0",
+]
+# Spellcheck: flag unknown/rare words with red underlines — adds ~58 MB.
+spellcheck = [
+    "wordfreq>=3",
+]
+# Recommended: everything except CUDA (use 'recommended,cuda' on NVIDIA GPUs).
+recommended = [
+    "caspr-flow[parakeet,spellcheck]",
+]
+# Everything: the full experience on an NVIDIA GPU.
+all = [
+    "caspr-flow[cuda,parakeet,spellcheck]",
 ]
 
 [project.scripts]
