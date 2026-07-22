@@ -25,6 +25,8 @@ const MOCK_BOOT: Bootstrap = {
   cleanup_enabled: true,
   groq_api_key_set: false,
   groq_model: 'llama-3.1-8b-instant',
+  groq_stt_model: 'whisper-large-v3-turbo',
+  smart_correct: true,
   cleanup_context_count: 10,
   tone_default: 'balanced',
   tone_profiles: {},

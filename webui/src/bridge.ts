@@ -38,6 +38,8 @@ export interface Bootstrap {
   cleanup_enabled: boolean
   groq_api_key_set: boolean
   groq_model: string
+  groq_stt_model: string
+  smart_correct: boolean
   cleanup_context_count: number
   tone_default: string
   tone_profiles: Record<string, string>

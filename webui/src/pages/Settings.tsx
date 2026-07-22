@@ -83,6 +83,11 @@ const ENGINES = [
   { value: 'auto', label: 'Auto — Parakeet for English' },
   { value: 'parakeet', label: 'Parakeet — English, fastest' },
   { value: 'whisper', label: 'Whisper — all languages' },
+  { value: 'groq', label: 'Groq — cloud, no local model' },
+]
+const GROQ_STT_MODELS = [
+  { value: 'whisper-large-v3-turbo', label: 'Whisper Large v3 Turbo — fastest' },
+  { value: 'whisper-large-v3', label: 'Whisper Large v3 — most accurate' },
 ]
 const MODELS = [
   { value: 'base', label: 'base — fastest' },
@@ -290,8 +295,11 @@ export function Settings() {
       </Section>
 
       <Section title="AI CLEANUP">
-        <Row label="AI cleanup" note="fixes fillers, punctuation & self-corrections">
+        <Row label="AI cleanup" note="fixes fillers, punctuation & capitalization">
           <Toggle checked={boot.cleanup_enabled} onChange={(on) => set('cleanup_enabled', on)} />
+        </Row>
+        <Row label="Smart cancel" note="reframe spoken self-corrections (5:30 → actually 6:30)">
+          <Toggle checked={boot.smart_correct} onChange={(on) => set('smart_correct', on)} />
         </Row>
         <Row label="Groq API key" note={boot.groq_api_key_set ? 'saved' : 'from console.groq.com'}>
           <GroqKey isSet={boot.groq_api_key_set} onSave={(k) => set('groq_api_key', k)} />
@@ -330,6 +338,15 @@ export function Settings() {
         <Row label="Engine" note="applies immediately">
           <Select value={boot.engine} options={ENGINES} onChange={(v) => set('engine', v)} />
         </Row>
+        {boot.engine === 'groq' && (
+          <Row label="Cloud model" note="audio is sent to Groq · needs an API key">
+            <Select
+              value={boot.groq_stt_model}
+              options={GROQ_STT_MODELS}
+              onChange={(v) => set('groq_stt_model', v)}
+            />
+          </Row>
+        )}
         <Row label="Whisper model" note="Whisper engine only">
           <Select value={boot.model} options={MODELS} onChange={(v) => set('model', v)} />
         </Row>
