@@ -149,3 +149,37 @@ def test_gesture_double_tap_toggles_handsfree(controller, monkeypatch):
     controller.on_ptt_release()
     assert controller.handsfree is False
     assert len(subs) == 1
+
+
+def test_handsfree_stop_resets_gesture_so_hold_works_again(controller, monkeypatch):
+    injected.clear()
+    controller._transcriber = _transcriber("hi")
+    controller._state = "idle"
+    controller.cfg.handsfree_double_tap = True
+    clock = [0.0]
+    monkeypatch.setattr(caspr.app.time, "monotonic", lambda: clock[0])
+
+    controller.on_ptt_press()  # tap 1
+    clock[0] = 0.1
+    controller.on_ptt_release()
+    clock[0] = 0.2
+    controller.on_ptt_press()  # tap 2 → hands-free on
+    clock[0] = 0.3
+    controller.on_ptt_release()
+    assert controller.handsfree is True
+
+    clock[0] = 2.0
+    controller.on_ptt_press()  # stop → real pipeline runs, injects, resets gesture
+    assert controller.handsfree is False
+    assert injected == ["hi"]
+    assert controller._gestures._state == "idle"  # session_finished fired in _pipeline
+    clock[0] = 2.05
+    controller.on_ptt_release()  # swallowed / ignored, no phantom recording
+
+    # A normal hold now works again — back to normal mode.
+    injected.clear()
+    clock[0] = 3.0
+    controller.on_ptt_press()
+    clock[0] = 3.5
+    controller.on_ptt_release()
+    assert injected == ["hi"]

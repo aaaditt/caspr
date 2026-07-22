@@ -93,3 +93,44 @@ def test_handsfree_stops_even_on_a_long_press():
     gi.press(2.0)
     gi.release(5.0)   # long press still just stops it
     assert log == ["commit", "hf:False"]
+
+
+def test_handsfree_stop_swallows_extra_taps_until_session_done():
+    # Stopping deactivates on the press; the release and any follow-up taps
+    # (e.g. a double-tap-to-stop) are swallowed so no phantom recording starts.
+    gi, log = _interp()
+    gi.press(0.0)
+    gi.release(0.1)
+    gi.press(0.2)
+    gi.release(0.3)   # hands-free on
+    log.clear()
+    gi.press(2.0)     # stop → deactivate immediately
+    assert log == ["commit", "hf:False"]
+    gi.release(2.05)  # swallowed
+    gi.press(2.1)     # 2nd tap of a double-tap-to-stop → swallowed
+    gi.release(2.15)  # swallowed
+    assert log == ["commit", "hf:False"]  # nothing new
+
+
+def test_session_finished_returns_to_normal_mode():
+    gi, log = _interp()
+    gi.press(0.0)
+    gi.release(0.1)
+    gi.press(0.2)
+    gi.release(0.3)   # hands-free on
+    gi.press(2.0)     # stop
+    gi.release(2.1)
+    log.clear()
+    gi.session_finished()  # controller: the clip's pipeline finished
+    gi.press(3.0)          # normal hold works again
+    gi.release(3.5)
+    assert log == ["start", "commit"]
+
+
+def test_session_finished_is_a_noop_when_idle():
+    gi, log = _interp()
+    gi.session_finished()
+    assert log == []
+    gi.press(0.0)
+    gi.release(0.5)
+    assert log == ["start", "commit"]

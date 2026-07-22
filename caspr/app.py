@@ -286,6 +286,9 @@ class AppController(QObject):
             self._set_state("idle", f"error: {e}")
             self.notify.emit("Dictation failed", str(e))
         finally:
+            # Release the hands-free stop-guard now the clip is fully processed,
+            # so hold/double-tap work again (no-op for a normal dictation).
+            self._gestures.session_finished()
             if self._reload_pending:  # model change requested mid-recording
                 self._reload_pending = False
                 self._set_state("loading", f"loading {self.cfg.model}…")

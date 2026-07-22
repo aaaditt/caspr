@@ -143,6 +143,12 @@ class GestureInterpreter:
     second tap follows within the double-tap window. The window is checked lazily
     on the next press, so no background timer is needed.
 
+    In hands-free the hotkey is stop-only: the next press deactivates and commits
+    the clip immediately, then every event is swallowed until the controller calls
+    ``session_finished()`` (the clip's pipeline is done). This keeps a double-tap-
+    to-stop from spawning a phantom recording, and normal hold/double-tap resume
+    once the session is fully finished.
+
     Callbacks:
       start()             begin capturing audio
       commit()            stop capturing and process the clip
@@ -184,8 +190,14 @@ class GestureInterpreter:
             else:  # too late — a brand new first press
                 self._begin(now)
         elif self._state == "handsfree":
-            self._state = "handsfree_pressed"  # already recording; a stop-tap begins
-        # duplicate presses in pressed_* states: ignore (OS auto-repeat safety)
+            # Stop-only: deactivate and commit now, then swallow everything until
+            # session_finished(). State is set first so a synchronous pipeline
+            # (its finally calls session_finished) still finds us in "stopping".
+            self._state = "stopping"
+            self._commit()
+            self._handsfree(False)
+        # presses in pressed_first/pressed_second/stopping: ignored (auto-repeat +
+        # double-tap-to-stop safety)
 
     def release(self, now: float) -> None:
         if self._state == "pressed_first":
@@ -205,11 +217,14 @@ class GestureInterpreter:
                 self._handsfree(True)
                 self._start()
                 self._state = "handsfree"
-        elif self._state == "handsfree_pressed":
-            self._commit()
-            self._handsfree(False)
+        # releases in idle/handsfree/stopping: ignored
+
+    def session_finished(self) -> None:
+        """Called by the controller when a clip's pipeline is done. Leaves the
+        post-stop 'stopping' guard so normal hold/double-tap gestures work again.
+        A no-op in any other state (e.g. after a normal dictation)."""
+        if self._state == "stopping":
             self._state = "idle"
-        # release with nothing pressed: ignore
 
     def _begin(self, now: float) -> None:
         self._start()
