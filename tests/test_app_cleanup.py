@@ -96,6 +96,21 @@ def test_pipeline_disabled_cleanup_injects_raw(controller, monkeypatch):
     assert injected == ["plain raw text"]
 
 
+def test_load_model_skips_warmup_for_cloud(controller, monkeypatch):
+    import caspr.stt as stt
+
+    class Cloud:
+        name, device = "groq", "cloud"
+
+        def transcribe(self, *a, **k):
+            raise AssertionError("cloud engine must not be warmed up with a billed call")
+
+    monkeypatch.setattr(stt, "create_transcriber", lambda cfg: Cloud())
+    controller._load_model()
+    assert controller._transcriber is not None
+    assert controller.state == "idle"
+
+
 def test_gesture_hold_runs_a_dictation(controller, monkeypatch):
     subs = []
     monkeypatch.setattr(controller, "_pipeline", lambda audio: subs.append(audio))

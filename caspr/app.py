@@ -130,8 +130,10 @@ class AppController(QObject):
         try:
             transcriber = stt.create_transcriber(self.cfg)
             # First CUDA inference compiles kernels; warm up on silence now so
-            # the first real dictation isn't slow.
-            transcriber.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
+            # the first real dictation isn't slow. Cloud engines have nothing to
+            # compile — a warm-up would just be a wasted, billed API request.
+            if getattr(transcriber, "device", "") != "cloud":
+                transcriber.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
             flag_unknown_words("warmup", [])  # wordfreq loads its data lazily
             self._transcriber = transcriber
             name = getattr(transcriber, "name", self.cfg.model)
