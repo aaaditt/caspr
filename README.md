@@ -12,16 +12,19 @@ cleanup via Groq, and keystroke/clipboard injection into whatever has focus.
   Text is typed into whatever window has focus.
 - **AI cleanup** — optional Groq LLM pass that fixes grammar, punctuation,
   casing, and filler words. Falls back to raw text if Groq is unreachable.
+- **Smart cancel** — reframes spoken self-corrections ("meet at 5:30, actually
+  6:30" → "Let's meet at 6:30"). Toggle it independently of general cleanup.
 - **Tone profiles** — per-app writing styles (casual for Slack, formal for
   email). Configurable in Settings.
 - **Hands-free mode** — double-tap the hotkey to toggle continuous recording.
 - **Pill overlay** — floating transcript pill that lingers after each dictation.
   Click to correct words, right-click a red word to add it to your dictionary
   or create an "always replace" rule.
-- **Two STT engines** — Whisper (all languages) and Parakeet (English, ~5× faster).
+- **Three STT engines** — Whisper (all languages), Parakeet (English, ~5×
+  faster), and Groq (cloud — no local model, just an API key).
 - **Custom dictionary** — teach it names, jargon, acronyms. Terms survive updates.
-- **Settings UI** — full React settings page for model, device, engine,
-  language, hotkeys, mic selection, and more.
+- **Live settings** — everything, including changing a keybind, applies
+  instantly; no restart needed. Install only the pieces you want (optional extras).
 
 ## Requirements
 
@@ -53,9 +56,11 @@ cleanup via Groq, and keystroke/clipboard injection into whatever has focus.
 git clone https://github.com/aaaditt/caspr.git
 cd caspr
 
-# 2. Install Python dependencies
-uv sync                            # CPU-only
-uv sync --extra cuda               # with NVIDIA GPU acceleration
+# 2. Install Python dependencies — pick only what you want
+uv sync                            # core: Whisper dictation only (~1.3 GB)
+uv sync --extra recommended        # + Parakeet engine + spellcheck flagging
+uv sync --extra all                # everything, incl. NVIDIA GPU (CUDA)
+uv sync --extra cuda               # just add GPU acceleration to any of the above
 
 # 3. Install Electron dependencies
 cd electron && npm install && cd ..
@@ -68,6 +73,21 @@ Electron spawns the Python backend automatically — no need to start it separat
 
 On first launch, Whisper downloads its model weights (~0.5 GB for `small`). This
 is a one-time download stored in `~/.cache/huggingface/`.
+
+### Cloud-only mode (no GPU, no local model)
+
+Don't want the local model stack? Run transcription in the cloud via Groq:
+
+1. Get a free key at [console.groq.com](https://console.groq.com).
+2. Settings → **AI Cleanup** → paste the key.
+3. Settings → **Transcription** → Engine → **Groq — cloud, no local model**.
+
+Now dictation uses Groq's Whisper API — no CUDA, no model download, startup is
+instant. Audio is only sent to the cloud on this engine; `auto`/local never do.
+
+**Live settings:** every setting — including changing a keybind — applies
+immediately. You never need to restart or relaunch caspr for a change to take
+effect.
 
 ### Optional setup
 
@@ -117,12 +137,14 @@ editable through the Settings page in the UI.
 | `hotkey` | `"ctrl+windows"` | Push-to-talk chord |
 | `model` | `"small"` | Whisper model: `tiny`, `base`, `small`, `medium`, `large-v3-turbo` |
 | `device` | `"auto"` | `auto`, `cuda`, or `cpu` |
-| `engine` | `"auto"` | `auto`, `whisper`, or `parakeet` |
+| `engine` | `"auto"` | `auto`, `whisper`, `parakeet`, or `groq` (cloud) |
 | `language` | `null` | Pin to a language (e.g. `"en"`) or `null` for auto-detect |
 | `injection` | `"type"` | `"type"` (SendInput keystrokes) or `"clipboard"` (Ctrl+V paste) |
 | `cleanup_enabled` | `true` | Enable AI cleanup via Groq |
-| `groq_api_key` | `""` | Groq API key (blank = raw mode, no cleanup) |
+| `smart_correct` | `true` | Reframe spoken self-corrections ("5:30 → actually 6:30") |
+| `groq_api_key` | `""` | Groq API key — used for cleanup *and* cloud STT (blank = raw mode) |
 | `groq_model` | `"llama-3.1-8b-instant"` | Groq model for cleanup |
+| `groq_stt_model` | `"whisper-large-v3-turbo"` | Groq model for cloud transcription |
 | `tone_default` | `"balanced"` | Default tone: `balanced`, `casual`, `formal`, `terse` |
 | `tone_profiles` | `{}` | Per-app tones, e.g. `{"slack.exe": "casual", "outlook.exe": "formal"}` |
 | `handsfree_double_tap` | `true` | Enable double-tap to toggle hands-free mode |
@@ -139,9 +161,12 @@ Two engines, routed by Settings → Transcription → Engine:
   leaving the GPU free. Dictionary hints don't apply on this path (no prompt
   biasing); replacement rules still do.
 - **Whisper** (faster-whisper) — all languages incl. Hindi and auto-detect.
+- **Groq** (cloud) — Whisper on Groq's API. No local model, no CUDA, instant
+  startup; needs a Groq key. Explicit-only: `auto` never routes audio to the cloud.
 
 **Auto** (default) uses Parakeet when Language is pinned to English, Whisper
-otherwise. First Parakeet use downloads ~1.2 GB from Hugging Face.
+otherwise. First Parakeet use downloads ~1.2 GB from Hugging Face. If the
+`parakeet` extra isn't installed, `auto` falls back to Whisper.
 
 ## Architecture
 
@@ -150,13 +175,14 @@ otherwise. First Parakeet use downloads ~1.2 GB from Hugging Face.
 │  Electron (electron/main.js)                │
 │  ├─ BrowserWindow → React UI (webui/dist)   │
 │  ├─ System tray (show / pause / quit)       │
-│  ├─ Global shortcuts (action hotkeys)       │
+│  ├─ Reacts to window actions (open history) │
 │  └─ Spawns Python as child process          │
 │       ↕ WebSocket ws://127.0.0.1:18321/ws   │
 ├─────────────────────────────────────────────┤
 │  Python backend (caspr --server)            │
 │  ├─ AppController (state machine)           │
-│  ├─ STT (Whisper / Parakeet)                │
+│  ├─ STT (Whisper / Parakeet / Groq cloud)   │
+│  ├─ Global hotkeys (primary PTT + actions)  │
 │  ├─ Audio recording (sounddevice)           │
 │  ├─ Text injection (SendInput / clipboard)  │
 │  ├─ AI cleanup (Groq)                       │
@@ -174,9 +200,10 @@ caspr-flow/
 │   ├── app.py           # AppController state machine
 │   ├── server.py        # WebSocket server for Electron
 │   ├── config.py        # Config dataclass + JSON persistence
-│   ├── stt.py           # Whisper transcription
-│   ├── stt_router.py    # Engine auto-routing (Whisper vs Parakeet)
-│   ├── hotkeys.py       # Push-to-talk keyboard hooks
+│   ├── stt.py           # Whisper transcription + engine routing
+│   ├── stt_groq.py      # Groq cloud transcription (no local model)
+│   ├── hotkeys.py       # Push-to-talk keyboard hooks + gesture interpreter
+│   ├── hotkey_service.py # Single owner for all global hotkeys (both runtimes)
 │   ├── inject.py        # Text injection into focused window
 │   ├── cleanup.py       # AI cleanup via Groq
 │   ├── sounds.py        # Sound cue synthesis
@@ -186,8 +213,7 @@ caspr-flow/
 │   ├── preload.js       # Secure bridge for renderer
 │   ├── python.js        # Python child process manager
 │   ├── ws-client.js     # WebSocket client
-│   ├── tray.js          # System tray
-│   └── hotkeys.js       # Global shortcut manager
+│   └── tray.js          # System tray
 ├── webui/               # React + Tailwind UI
 │   ├── src/             # TypeScript source
 │   └── dist/            # Pre-built bundle (committed)
