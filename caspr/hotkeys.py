@@ -133,3 +133,85 @@ class PushToTalk:
             return
         self._held = False
         self._on_release()
+
+
+class GestureInterpreter:
+    """Classifies a stream of hotkey press/release events into dictation actions.
+
+    Recording always begins on press (a hold never loses audio); the release
+    decides what the gesture was, from how long the key was held and whether a
+    second tap follows within the double-tap window. The window is checked lazily
+    on the next press, so no background timer is needed.
+
+    Callbacks:
+      start()             begin capturing audio
+      commit()            stop capturing and process the clip
+      cancel()            stop capturing and discard it
+      handsfree(active)   hands-free turned on/off (UI/state cue)
+
+    Timestamps (monotonic seconds) are supplied by the caller so this is pure and
+    testable.
+    """
+
+    def __init__(
+        self,
+        *,
+        start,
+        commit,
+        cancel,
+        handsfree,
+        hold_min_s: float = 0.25,
+        double_tap_s: float = 0.4,
+    ):
+        self._start = start
+        self._commit = commit
+        self._cancel = cancel
+        self._handsfree = handsfree
+        self._hold_min = hold_min_s
+        self._double_tap = double_tap_s
+        self._state = "idle"
+        self._press_t = 0.0
+        self._tap1_t = 0.0
+
+    def press(self, now: float) -> None:
+        if self._state == "idle":
+            self._begin(now)
+        elif self._state == "await_second":
+            if now - self._tap1_t <= self._double_tap:
+                self._start()
+                self._press_t = now
+                self._state = "pressed_second"
+            else:  # too late — a brand new first press
+                self._begin(now)
+        elif self._state == "handsfree":
+            self._state = "handsfree_pressed"  # already recording; a stop-tap begins
+        # duplicate presses in pressed_* states: ignore (OS auto-repeat safety)
+
+    def release(self, now: float) -> None:
+        if self._state == "pressed_first":
+            if now - self._press_t >= self._hold_min:
+                self._commit()
+                self._state = "idle"
+            else:  # short tap → discard, await a possible second tap
+                self._cancel()
+                self._tap1_t = now
+                self._state = "await_second"
+        elif self._state == "pressed_second":
+            if now - self._press_t >= self._hold_min:  # second was a hold → dictation
+                self._commit()
+                self._state = "idle"
+            else:  # two quick taps → hands-free on
+                self._cancel()
+                self._handsfree(True)
+                self._start()
+                self._state = "handsfree"
+        elif self._state == "handsfree_pressed":
+            self._commit()
+            self._handsfree(False)
+            self._state = "idle"
+        # release with nothing pressed: ignore
+
+    def _begin(self, now: float) -> None:
+        self._start()
+        self._press_t = now
+        self._state = "pressed_first"

@@ -108,6 +108,112 @@ const PRESETS = [
   { value: 'right ctrl', label: 'Right Ctrl' },
   { value: 'ctrl+alt', label: 'Ctrl + Alt' },
 ]
+const GROQ_MODELS = [
+  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B — fastest' },
+  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B — best' },
+  { value: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B — balanced' },
+]
+const TONES = [
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'casual', label: 'Casual' },
+  { value: 'formal', label: 'Formal' },
+  { value: 'concise', label: 'Concise' },
+  { value: 'verbatim', label: 'Verbatim — minimal edits' },
+]
+
+const inputCls =
+  'rounded-[10px] border border-hairline bg-raised px-3 py-1.5 text-[13px] text-cream focus:border-[#3a3028] focus:outline-none'
+
+function GroqKey({ isSet, onSave }: { isSet: boolean; onSave: (key: string) => void }) {
+  const [draft, setDraft] = useState('')
+  return (
+    <>
+      <input
+        type="password"
+        value={draft}
+        placeholder={isSet ? '•••••••• saved' : 'gsk_…'}
+        onChange={(e) => setDraft(e.target.value)}
+        className={`w-44 ${inputCls}`}
+      />
+      <button
+        onClick={() => {
+          if (draft.trim()) {
+            onSave(draft.trim())
+            setDraft('')
+          }
+        }}
+        disabled={!draft.trim()}
+        className="rounded-[10px] border border-hairline px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-raised disabled:opacity-50"
+      >
+        Save
+      </button>
+    </>
+  )
+}
+
+function ToneProfiles({
+  profiles,
+  onChange,
+}: {
+  profiles: Record<string, string>
+  onChange: (next: Record<string, string>) => void
+}) {
+  const [exe, setExe] = useState('')
+  const rows = Object.entries(profiles)
+  const remove = (key: string) => {
+    const next = { ...profiles }
+    delete next[key]
+    onChange(next)
+  }
+  const add = () => {
+    const name = exe.trim().toLowerCase()
+    if (name) {
+      onChange({ ...profiles, [name]: 'casual' })
+      setExe('')
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2 py-1">
+      {rows.length === 0 && (
+        <span className="text-[11.5px] text-faint">
+          No app-specific tones yet — every app uses the default tone.
+        </span>
+      )}
+      {rows.map(([app, tone]) => (
+        <div key={app} className="flex items-center gap-3">
+          <span className="w-40 shrink-0 truncate text-[13px] text-ink">{app}</span>
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <Select value={tone} options={TONES} onChange={(v) => onChange({ ...profiles, [app]: v })} />
+            <button
+              onClick={() => remove(app)}
+              className="rounded-[10px] border border-hairline px-2.5 py-1.5 text-[12px] text-muted transition-colors hover:bg-raised hover:text-coral"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3 pt-1">
+        <input
+          value={exe}
+          placeholder="app exe, e.g. slack.exe"
+          onChange={(e) => setExe(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+          className={`w-40 shrink-0 ${inputCls}`}
+        />
+        <div className="flex flex-1 justify-end">
+          <button
+            onClick={add}
+            disabled={!exe.trim()}
+            className="rounded-[10px] border border-hairline px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-raised disabled:opacity-50"
+          >
+            Add app
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function Settings() {
   const { boot, api, refresh } = useCaspr()
@@ -161,6 +267,63 @@ export function Settings() {
         <Row label="Language">
           <Select value={boot.language} options={LANGUAGES} onChange={(v) => set('language', v)} />
         </Row>
+        <Row label="Hands-free" note="double-tap to start, tap to stop">
+          <Toggle
+            checked={boot.handsfree_double_tap}
+            onChange={(on) => set('handsfree_double_tap', on)}
+          />
+        </Row>
+        {boot.handsfree_double_tap && (
+          <Row label="Double-tap window">
+            <input
+              type="number"
+              min={100}
+              max={2000}
+              step={50}
+              value={boot.double_tap_ms}
+              onChange={(e) => set('double_tap_ms', Number(e.target.value))}
+              className={`w-20 text-right ${inputCls}`}
+            />
+            <span className="text-[12.5px] text-muted">ms</span>
+          </Row>
+        )}
+      </Section>
+
+      <Section title="AI CLEANUP">
+        <Row label="AI cleanup" note="fixes fillers, punctuation & self-corrections">
+          <Toggle checked={boot.cleanup_enabled} onChange={(on) => set('cleanup_enabled', on)} />
+        </Row>
+        <Row label="Groq API key" note={boot.groq_api_key_set ? 'saved' : 'from console.groq.com'}>
+          <GroqKey isSet={boot.groq_api_key_set} onSave={(k) => set('groq_api_key', k)} />
+        </Row>
+        <Row label="Cleanup model">
+          <Select value={boot.groq_model} options={GROQ_MODELS} onChange={(v) => set('groq_model', v)} />
+        </Row>
+        <Row label="Context window" note="recent dictations sent for consistency">
+          <input
+            type="number"
+            min={0}
+            max={50}
+            step={1}
+            value={boot.cleanup_context_count}
+            onChange={(e) => set('cleanup_context_count', Number(e.target.value))}
+            className={`w-20 text-right ${inputCls}`}
+          />
+          <span className="text-[12.5px] text-muted">last</span>
+        </Row>
+      </Section>
+
+      <Section title="TONE">
+        <Row label="Default tone">
+          <Select value={boot.tone_default} options={TONES} onChange={(v) => set('tone_default', v)} />
+        </Row>
+        <div className="border-b border-hairline py-1 last:border-b-0">
+          <span className="text-[13.5px] text-ink">Per-app tone</span>
+          <ToneProfiles
+            profiles={boot.tone_profiles}
+            onChange={(next) => set('tone_profiles', next)}
+          />
+        </div>
       </Section>
 
       <Section title="TRANSCRIPTION">

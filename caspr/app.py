@@ -18,17 +18,20 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from PySide6.QtCore import QObject, Signal
 
-from . import inject
+from . import cleanup, context, inject
 from .audio import SAMPLE_RATE, Recorder
 from .config import Config, save_config
 from .dictionary import build_initial_prompt
 from .history import History
+from .hotkeys import GestureInterpreter
 from .replacements import apply_replacements
 from .spellcheck import flag_unknown_words
 
 log = logging.getLogger(__name__)
 
 MIN_SPEECH_SECONDS = 0.3
+# A press shorter than this is a "tap" (gesture), not a dictation hold.
+HOLD_MIN_SECONDS = 0.25
 
 
 class AppController(QObject):
@@ -52,6 +55,16 @@ class AppController(QObject):
         self._state = "loading"
         self._reload_pending = False
         self.paused = False
+        self.handsfree = False
+        self._pending_exe: str | None = None  # foreground app captured at record start
+        self._gestures = GestureInterpreter(
+            start=self._begin_recording,
+            commit=self._commit_recording,
+            cancel=self._cancel_recording,
+            handsfree=self._set_handsfree,
+            hold_min_s=HOLD_MIN_SECONDS,
+            double_tap_s=cfg.double_tap_ms / 1000,
+        )
 
     # -- lifecycle --------------------------------------------------------
 
@@ -131,20 +144,35 @@ class AppController(QObject):
     # -- hotkey callbacks (keyboard hook thread) ---------------------------
 
     def on_ptt_press(self) -> None:
+        # The gesture layer distinguishes hold (dictation) from double-tap
+        # (hands-free); when disabled, a press begins recording immediately.
+        if self.cfg.handsfree_double_tap:
+            self._gestures.press(time.monotonic())
+        else:
+            self._begin_recording()
+
+    def on_ptt_release(self) -> None:
+        if self.cfg.handsfree_double_tap:
+            self._gestures.release(time.monotonic())
+        else:
+            self._commit_recording()
+
+    def _begin_recording(self) -> None:
         with self._lock:
             if self._state != "idle" or self.paused:
                 log.debug("press ignored in state=%s paused=%s", self._state, self.paused)
                 return
             self._state = "recording"
+        self._pending_exe = context.foreground_exe()  # for per-app tone
         try:
             self._recorder.start()
-            self.state_changed.emit("recording", "")
+            self.state_changed.emit("recording", "hands-free" if self.handsfree else "")
         except Exception as e:
             log.exception("could not start recording")
             self._set_state("idle", f"mic error: {e}")
             self.notify.emit("Microphone error", str(e))
 
-    def on_ptt_release(self) -> None:
+    def _commit_recording(self) -> None:
         with self._lock:
             if self._state != "recording":
                 return
@@ -152,6 +180,29 @@ class AppController(QObject):
         audio = self._recorder.stop()
         self.state_changed.emit("processing", "")
         self._executor.submit(self._pipeline, audio)
+
+    def _cancel_recording(self) -> None:
+        """Stop and discard the current clip (a gesture tap, never a dictation)."""
+        with self._lock:
+            if self._state != "recording":
+                return
+            self._state = "idle"
+        self._recorder.stop()
+        self.state_changed.emit("idle", "")
+
+    def _set_handsfree(self, active: bool) -> None:
+        self.handsfree = active
+
+    def reconfigure_gestures(self) -> None:
+        """Rebuild the gesture interpreter after a hands-free setting change."""
+        self._gestures = GestureInterpreter(
+            start=self._begin_recording,
+            commit=self._commit_recording,
+            cancel=self._cancel_recording,
+            handsfree=self._set_handsfree,
+            hold_min_s=HOLD_MIN_SECONDS,
+            double_tap_s=self.cfg.double_tap_ms / 1000,
+        )
 
     # -- pipeline (worker thread) ------------------------------------------
 
@@ -180,7 +231,20 @@ class AppController(QObject):
             if not result.text:
                 self._set_state("idle", "didn't catch that")
                 return
-            final = apply_replacements(result.text, self.cfg.replacements)
+            # AI cleanup (self-correction, fillers, punctuation) before the user's
+            # literal replacement rules, so those still apply to the cleaned text.
+            recent = [e.final_text for e in self.history.recent(self.cfg.cleanup_context_count)]
+            tone = context.tone_for(self._pending_exe, self.cfg.tone_profiles, self.cfg.tone_default)
+            t_clean = time.perf_counter()
+            cleaned = cleanup.clean_text(
+                result.text,
+                recent=recent,
+                glossary=self.cfg.dictionary,
+                tone=tone,
+                cfg=self.cfg,
+            )
+            cleanup_s = time.perf_counter() - t_clean
+            final = apply_replacements(cleaned, self.cfg.replacements)
             inject.inject_text(final, self.cfg.injection)
             total_s = time.perf_counter() - t0
             spans = flag_unknown_words(
@@ -188,8 +252,8 @@ class AppController(QObject):
             )
             self.history.add(result.text, final, result.infer_s, total_s)
             log.info(
-                "dictation: %.1fs audio | infer %.2fs | total %.2fs | %r",
-                audio_s, result.infer_s, total_s, final[:80],
+                "dictation: %.1fs audio | infer %.2fs | clean %.2fs | total %.2fs | %r",
+                audio_s, result.infer_s, cleanup_s, total_s, final[:80],
             )
             self._set_state("idle", final[:60])
             self.dictation_done.emit(final, spans)

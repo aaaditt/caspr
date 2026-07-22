@@ -31,6 +31,19 @@ class Config:
     hotkey_cancel_dictation: str = ""
     hotkey_mute_mic: str = ""
     hotkey_open_history: str = ""
+    # -- AI cleanup (Groq) --------------------------------------------------
+    # Master switch: False = raw mode, transcript never leaves the machine.
+    cleanup_enabled: bool = True
+    groq_api_key: str = ""  # from console.groq.com; blank disables cleanup
+    groq_model: str = "llama-3.1-8b-instant"  # fast Groq model for cleanup
+    cleanup_context_count: int = 10  # last-N dictations fed as context
+    cleanup_timeout_s: float = 3.0  # Groq timeout → fall back to raw text
+    # Per-app tone: exe name (lowercase) → tone label; else tone_default.
+    tone_profiles: dict[str, str] = field(default_factory=dict)
+    tone_default: str = "balanced"
+    # -- Hands-free -----------------------------------------------------------
+    handsfree_double_tap: bool = True  # double-tap the hotkey to toggle hands-free
+    double_tap_ms: int = 400  # max gap between taps to count as a double-tap
 
 
 def default_config_path() -> Path:

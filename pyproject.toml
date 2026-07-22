@@ -13,6 +13,7 @@ dependencies = [
     "wordfreq>=3",
     "onnx-asr[hub]>=0.12.0",
     "aiohttp>=3.9",
+    "groq>=0.11",
 ]
 
 [project.optional-dependencies]

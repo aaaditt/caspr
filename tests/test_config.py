@@ -58,3 +58,32 @@ def test_default_config_path_is_under_appdata():
     path = default_config_path()
     assert path.name == "config.json"
     assert path.parent.name == "caspr-flow"
+
+
+def test_cleanup_defaults():
+    cfg = Config()
+    assert cfg.cleanup_enabled is True
+    assert cfg.groq_api_key == ""
+    assert cfg.groq_model == "llama-3.1-8b-instant"
+    assert cfg.cleanup_context_count == 10
+    assert cfg.cleanup_timeout_s == 3.0
+    assert cfg.tone_profiles == {}
+    assert cfg.tone_default == "balanced"
+    assert cfg.handsfree_double_tap is True
+    assert cfg.double_tap_ms == 400
+
+
+def test_cleanup_settings_roundtrip(tmp_path):
+    path = tmp_path / "config.json"
+    cfg = Config(
+        cleanup_enabled=False,
+        groq_api_key="gsk_secret",
+        groq_model="llama-3.3-70b-versatile",
+        cleanup_context_count=5,
+        tone_profiles={"slack.exe": "casual", "outlook.exe": "formal"},
+        tone_default="formal",
+        handsfree_double_tap=False,
+        double_tap_ms=350,
+    )
+    save_config(cfg, path)
+    assert load_config(path) == cfg

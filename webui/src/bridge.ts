@@ -35,6 +35,14 @@ export interface Bootstrap {
   injection: string
   pill_linger_s: number
   sound_cues: boolean
+  cleanup_enabled: boolean
+  groq_api_key_set: boolean
+  groq_model: string
+  cleanup_context_count: number
+  tone_default: string
+  tone_profiles: Record<string, string>
+  handsfree_double_tap: boolean
+  double_tap_ms: number
   input_device: number | null
   mics: { index: number; name: string }[]
   startup: boolean

@@ -141,3 +141,69 @@ def test_bootstrap_includes_optional_hotkeys_unbound_by_default(tmp_path):
         assert boot["hotkey_mute_mic_pretty"] == ""
     finally:
         controller.shutdown()
+
+
+def test_apply_setting_cleanup_fields_persist_and_coerce(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "cleanup_enabled", 0) == ""
+        assert c.cfg.cleanup_enabled is False
+        assert apply_setting(c, "groq_api_key", "  gsk_secret  ") == ""
+        assert c.cfg.groq_api_key == "gsk_secret"
+        assert apply_setting(c, "groq_model", "llama-3.3-70b-versatile") == ""
+        assert c.cfg.groq_model == "llama-3.3-70b-versatile"
+        assert apply_setting(c, "cleanup_context_count", "8") == ""
+        assert c.cfg.cleanup_context_count == 8
+        assert apply_setting(c, "tone_default", "formal") == ""
+        assert c.cfg.tone_default == "formal"
+        assert load_config(tmp_path / "cfg.json").groq_api_key == "gsk_secret"
+        assert calls == []  # none of these hot-reload the model
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_tone_profiles_validated(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "tone_profiles", {"slack.exe": "casual"}) == ""
+        assert c.cfg.tone_profiles == {"slack.exe": "casual"}
+        assert apply_setting(c, "tone_profiles", "not-a-dict") == ""  # rejected
+        assert c.cfg.tone_profiles == {"slack.exe": "casual"}  # untouched
+        assert apply_setting(c, "tone_profiles", {"x": 3}) == ""  # non-str value rejected
+        assert c.cfg.tone_profiles == {"slack.exe": "casual"}
+    finally:
+        c.shutdown()
+
+
+def test_apply_setting_double_tap_reconfigures_gesture(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "double_tap_ms", 350) == ""
+        assert c.cfg.double_tap_ms == 350
+        assert c._gestures._double_tap == 0.35  # live-applied, no restart
+        assert apply_setting(c, "handsfree_double_tap", False) == ""
+        assert c.cfg.handsfree_double_tap is False
+    finally:
+        c.shutdown()
+
+
+def test_bootstrap_exposes_cleanup_without_leaking_key(tmp_path):
+    controller = AppController(
+        Config(groq_api_key="gsk_topsecret"),
+        config_path=tmp_path / "cfg.json",
+        history_path=tmp_path / "h.db",
+    )
+    try:
+        boot = bootstrap(controller)
+        json.dumps(boot)
+        assert boot["cleanup_enabled"] is True
+        assert boot["groq_api_key_set"] is True
+        assert "groq_api_key" not in boot  # secret never echoed to the UI
+        assert boot["groq_model"] == "llama-3.1-8b-instant"
+        assert boot["cleanup_context_count"] == 10
+        assert boot["tone_default"] == "balanced"
+        assert boot["handsfree_double_tap"] is True
+        assert boot["double_tap_ms"] == 400
+        assert boot["tone_profiles"] == {}
+    finally:
+        controller.shutdown()

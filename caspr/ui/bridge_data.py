@@ -26,7 +26,17 @@ _SETTING_KEYS = {
     "hotkey_cancel_dictation",
     "hotkey_mute_mic",
     "hotkey_open_history",
+    "cleanup_enabled",
+    "groq_api_key",
+    "groq_model",
+    "cleanup_context_count",
+    "tone_default",
+    "tone_profiles",
+    "handsfree_double_tap",
+    "double_tap_ms",
 }
+
+_GESTURE_KEYS = {"handsfree_double_tap", "double_tap_ms"}
 
 _OPTIONAL_HOTKEY_KEYS = {
     "hotkey_toggle_dictation",
@@ -51,8 +61,24 @@ def apply_setting(controller, key: str, value) -> str:
         value = None if value is None else int(value)
     elif key == "pill_linger_s":
         value = float(value)
-    elif key == "sound_cues":
+    elif key in ("sound_cues", "cleanup_enabled", "handsfree_double_tap"):
         value = bool(value)
+    elif key == "groq_api_key":
+        value = str(value).strip()
+    elif key == "groq_model":
+        if not isinstance(value, str) or not value.strip():
+            return ""
+    elif key == "tone_default":
+        value = str(value)
+    elif key == "cleanup_context_count":
+        value = max(0, min(50, int(value)))
+    elif key == "double_tap_ms":
+        value = max(100, min(2000, int(value)))
+    elif key == "tone_profiles":
+        if not isinstance(value, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+        ):
+            return ""
     elif key == "hotkey":
         if not isinstance(value, str) or not parse_chord(value):
             return ""
@@ -70,6 +96,9 @@ def apply_setting(controller, key: str, value) -> str:
     if key == "input_device":
         controller.set_input_device(value)
         return "mic"
+    if key in _GESTURE_KEYS:
+        controller.reconfigure_gestures()
+        return ""
     if key == "hotkey" or key in _OPTIONAL_HOTKEY_KEYS:
         return "hotkey"
     return ""
@@ -125,6 +154,14 @@ def bootstrap(controller) -> dict:
         "injection": cfg.injection,
         "pill_linger_s": cfg.pill_linger_s,
         "sound_cues": cfg.sound_cues,
+        "cleanup_enabled": cfg.cleanup_enabled,
+        "groq_api_key_set": bool(cfg.groq_api_key.strip()),  # never echo the secret
+        "groq_model": cfg.groq_model,
+        "cleanup_context_count": cfg.cleanup_context_count,
+        "tone_default": cfg.tone_default,
+        "tone_profiles": dict(cfg.tone_profiles),
+        "handsfree_double_tap": cfg.handsfree_double_tap,
+        "double_tap_ms": cfg.double_tap_ms,
         "input_device": cfg.input_device,
         "mics": [{"index": index, "name": name} for index, name in list_input_devices()],
         "startup": startup_enabled(),
