@@ -34,8 +34,9 @@ log = logging.getLogger(__name__)
 class JsonWsServer:
     """Thin wrapper: manages connected WebSocket clients and broadcasts events."""
 
-    def __init__(self, controller: AppController):
+    def __init__(self, controller: AppController, service=None):
         self._controller = controller
+        self._service = service  # HotkeyService; re-armed on a hotkey setting change
         self._clients: set[web.WebSocketResponse] = set()
         self._loop: asyncio.AbstractEventLoop | None = None
 
@@ -44,6 +45,7 @@ class JsonWsServer:
         controller.input_level.connect(self._on_input_level)
         controller.dictation_done.connect(self._on_dictation_done)
         controller.paused_changed.connect(self._on_paused_changed)
+        controller.open_history_requested.connect(self._on_open_history)
 
     # -- signal handlers (run on Qt threads, schedule into asyncio) ----------
 
@@ -68,6 +70,10 @@ class JsonWsServer:
 
     def _on_paused_changed(self, paused: bool) -> None:
         self._broadcast({"type": "paused_changed", "paused": paused})
+
+    def _on_open_history(self) -> None:
+        # Electron shows + navigates its window; the Qt pill-only mode has no window.
+        self._broadcast({"type": "action", "name": "open_history"})
 
     def _broadcast_data_changed(self) -> None:
         self._broadcast({"type": "data_changed"})
@@ -115,6 +121,10 @@ class JsonWsServer:
         if t == "set_setting":
             key, value = msg.get("key", ""), msg.get("value")
             result = apply_setting(ctrl, key, value)
+            if result == "hotkey" and self._service is not None:
+                # Re-arm Python's global hooks so the new keybind works with no restart.
+                self._service.rearm()
+                self._broadcast({"type": "hotkeys_changed"})
             return {"type": "setting_applied", "key": key, "result": result}
 
         if t == "learn_term":
@@ -279,13 +289,20 @@ def run_server(cfg: Config, port: int = 18321) -> int:
     cues = SoundCues(cfg)
     controller.state_changed.connect(cues.on_state)
 
+    # Python owns the global hotkeys in server mode too — Electron's globalShortcut
+    # can't do key-release, so it can't drive hold-to-talk.
+    from .hotkey_service import HotkeyService
+
+    service = HotkeyService(controller, cfg)
+
     # WebSocket server runs in a background thread
-    ws_server = JsonWsServer(controller)
+    ws_server = JsonWsServer(controller, service=service)
     ws_thread = threading.Thread(target=ws_server.run, args=(port,), daemon=True)
     ws_thread.start()
 
+    service.rearm()
     controller.start()
-    log.info("caspr server mode: pill + WS on port %d", port)
+    log.info("caspr server mode: pill + WS + hotkeys on port %d", port)
 
     code = app.exec()
     controller.shutdown()
