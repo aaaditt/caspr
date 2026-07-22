@@ -42,6 +42,7 @@ class AppController(QObject):
     dictation_done = Signal(str, object)
     paused_changed = Signal(bool)
     notify = Signal(str, str)  # title, body — surfaced as a tray notification
+    open_history_requested = Signal()  # a hotkey asked to surface the History view
 
     def __init__(self, cfg: Config, config_path=None, history_path=None):
         super().__init__()
@@ -205,6 +206,27 @@ class AppController(QObject):
             hold_min_s=HOLD_MIN_SECONDS,
             double_tap_s=self.cfg.double_tap_ms / 1000,
         )
+
+    # -- secondary hotkey actions (press-only) -----------------------------
+
+    def toggle_dictation(self) -> None:
+        """Tap-to-toggle: start dictating when idle, commit when recording."""
+        if self._state == "idle":
+            self._begin_recording()
+        elif self._state == "recording":
+            self._commit_recording()
+
+    def cancel_dictation(self) -> None:
+        """Discard the current clip without transcribing it."""
+        self._cancel_recording()
+
+    def mute_mic(self) -> None:
+        """Mute/unmute dictation — same guard as the tray pause toggle."""
+        self.toggle_pause()
+
+    def open_history(self) -> None:
+        """Ask the host UI to surface the History view."""
+        self.open_history_requested.emit()
 
     # -- pipeline (worker thread) ------------------------------------------
 
