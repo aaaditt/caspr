@@ -32,9 +32,11 @@ def pick_engine(engine: str, language: str | None) -> str:
 
     "auto" picks Parakeet only when the user pinned English in Settings —
     routing happens before any audio exists, so language auto-detect (and
-    Hindi) stay on Whisper. Explicit "parakeet"/"whisper" always win.
+    Hindi) stay on Whisper. Explicit "parakeet"/"whisper"/"groq" always win.
+
+    "groq" (cloud) is explicit-only: "auto" never routes audio off-machine.
     """
-    if engine in ("parakeet", "whisper"):
+    if engine in ("parakeet", "whisper", "groq"):
         return engine
     return "parakeet" if language == "en" else "whisper"
 
@@ -43,7 +45,12 @@ def create_transcriber(cfg):
     """Build the engine cfg asks for. Both engines share the same contract:
     .transcribe(audio, language=..., initial_prompt=...) -> Transcription,
     plus .device and .name attributes."""
-    if pick_engine(cfg.engine, cfg.language) == "parakeet":
+    resolved = pick_engine(cfg.engine, cfg.language)
+    if resolved == "groq":
+        from .stt_groq import GroqTranscriber
+
+        return GroqTranscriber(cfg)
+    if resolved == "parakeet":
         from .stt_parakeet import ParakeetTranscriber
 
         return ParakeetTranscriber(cfg.device)
