@@ -22,7 +22,7 @@ _VELVET_BG = "#151110"
 
 
 class Shell(QWidget):
-    hotkey_changed = Signal(str)
+    hotkeys_changed = Signal()
     capture_active = Signal(bool)
 
     def __init__(self, controller):
@@ -42,8 +42,8 @@ class Shell(QWidget):
         self._bridge = Bridge(self, controller)
         self._channel.registerObject("caspr", self._bridge)
         page.setWebChannel(self._channel)
-        # __main__ wires PTT re-arm and capture suspension to the Shell's signals
-        self._bridge.hotkey_changed.connect(self.hotkey_changed)
+        # __main__ wires hotkey re-arm and capture suspension to the Shell's signals
+        self._bridge.hotkeys_changed.connect(self.hotkeys_changed)
         self._bridge.capture_active.connect(self.capture_active)
 
         self._round_corners()
@@ -74,6 +74,12 @@ class Shell(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def go_to(self, page: str) -> None:
+        """Navigate the React app to a page (same event the Electron preload fires)."""
+        self._view.page().runJavaScript(
+            f"window.dispatchEvent(new CustomEvent('caspr-navigate', {{detail: {page!r}}}))"
+        )
 
     def closeEvent(self, event) -> None:
         event.ignore()

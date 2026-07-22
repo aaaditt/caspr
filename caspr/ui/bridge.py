@@ -31,7 +31,7 @@ class Bridge(QObject):
     dictation_done = Signal(str, "QVariantList")
     paused_changed = Signal(bool)
     data_changed = Signal()  # history/dictionary mutated — pages should refetch
-    hotkey_changed = Signal(str)  # relayed by Shell so __main__ re-arms PTT
+    hotkeys_changed = Signal()  # any hotkey key changed — host re-arms all hooks
     capture_active = Signal(bool)  # True while the capture dialog's hook is live
 
     def __init__(self, window, controller):
@@ -95,8 +95,9 @@ class Bridge(QObject):
 
     @Slot(str, "QVariant")
     def set_setting(self, key: str, value) -> None:
+        # Any hotkey change (primary or an action key) re-arms every hook.
         if apply_setting(self._controller, key, value) == "hotkey":
-            self.hotkey_changed.emit(self._controller.cfg.hotkey)
+            self.hotkeys_changed.emit()
 
     @Slot(result="QVariant")
     def capture_hotkey(self):

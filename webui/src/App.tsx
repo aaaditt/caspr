@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ResizeEdges } from './components/ResizeEdges'
 import { Sidebar, type Page } from './components/Sidebar'
 import { TitleBar } from './components/TitleBar'
@@ -19,6 +19,16 @@ const PAGES: Record<Page, React.ComponentType> = {
 export default function App() {
   const [page, setPage] = useState<Page>('home')
   const reduce = useReducedMotion()
+
+  // The host (Qt or Electron) can navigate the app, e.g. an "open history" hotkey.
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const detail = (e as CustomEvent).detail as Page
+      if (detail) setPage(detail)
+    }
+    window.addEventListener('caspr-navigate', onNavigate)
+    return () => window.removeEventListener('caspr-navigate', onNavigate)
+  }, [])
 
   const Current = PAGES[page]
   return (

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication
 from .app import AppController
 from .audio import load_wav_mono16k
 from .config import default_config_path, load_config, save_config
-from .hotkeys import PushToTalk
+from .hotkey_service import HotkeyService
 from .launcher import install_launcher, set_startup
 
 log = logging.getLogger("caspr")
@@ -173,21 +173,17 @@ def main() -> int:
         cues = SoundCues(cfg)
         controller.state_changed.connect(cues.on_state)
 
-        ptt_holder: dict[str, PushToTalk] = {}
-
-        def arm(chord: str) -> None:
-            if "ptt" in ptt_holder:
-                ptt_holder["ptt"].stop()
-            ptt_holder["ptt"] = PushToTalk(
-                chord, controller.on_ptt_press, controller.on_ptt_release
-            )
-            ptt_holder["ptt"].start()
-
-        arm(cfg.hotkey)
-        window.hotkey_changed.connect(arm)
-        # Suspend PTT while the hotkey-capture dialog has its own hook installed
+        # Python owns every global hotkey (primary PTT + action keys); one rearm()
+        # applies any change live, no restart.
+        service = HotkeyService(controller, cfg)
+        service.rearm()
+        window.hotkeys_changed.connect(service.rearm)
+        # Suspend all hooks while the capture dialog has its own hook installed
         window.capture_active.connect(
-            lambda active: ptt_holder["ptt"].stop() if active else arm(cfg.hotkey)
+            lambda active: service.suspend() if active else service.resume()
+        )
+        controller.open_history_requested.connect(
+            lambda: (window.surface(), window.go_to("history"))
         )
         window.surface()
         log.info("ready: hold %r to dictate", cfg.hotkey)
