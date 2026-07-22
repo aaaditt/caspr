@@ -73,6 +73,14 @@ def test_cleanup_defaults():
     assert cfg.double_tap_ms == 400
 
 
+def test_groq_stt_model_default():
+    assert Config().groq_stt_model == "whisper-large-v3-turbo"
+
+
+def test_smart_correct_default():
+    assert Config().smart_correct is True
+
+
 def test_cleanup_settings_roundtrip(tmp_path):
     path = tmp_path / "config.json"
     cfg = Config(
