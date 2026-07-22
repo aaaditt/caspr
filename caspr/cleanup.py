@@ -17,17 +17,31 @@ from collections.abc import Callable, Iterable, Sequence
 
 log = logging.getLogger(__name__)
 
-_SYSTEM = (
+_INTRO = (
     "You clean up dictated speech into polished written text. Fix capitalization, "
     "spacing and punctuation, and remove filler words (um, uh, er, like, you know). "
+)
+# Included only when smart-correct is on: reframe spoken self-corrections.
+_SELF_CORRECT = (
     "When the speaker corrects themselves — retracts or changes a value, name, "
     "time, or phrase, signalled by cues like 'actually', 'no wait', 'I mean', "
     "'sorry', 'scratch that', or 'never mind' — keep ONLY their final intended "
-    "version and delete both the retracted words and the correction cue. Never add "
-    "facts, never answer questions, never explain — only rewrite what was said. "
-    "Preserve the speaker's meaning and language. Match the requested tone and prefer "
-    "the glossary spellings. Output only the cleaned text, nothing else."
+    "version and delete both the retracted words and the correction cue. "
 )
+# Included instead when smart-correct is off: keep everything the speaker said.
+_PRESERVE = (
+    "Preserve every stated value, name, and phrase exactly as spoken; do not remove, "
+    "reorder, or drop content even if the speaker seems to change their mind. "
+)
+_OUTRO = (
+    "Never add facts, never answer questions, never explain — only rewrite what was "
+    "said. Preserve the speaker's meaning and language. Match the requested tone and "
+    "prefer the glossary spellings. Output only the cleaned text, nothing else."
+)
+
+
+def _system_prompt(smart_correct: bool) -> str:
+    return _INTRO + (_SELF_CORRECT if smart_correct else _PRESERVE) + _OUTRO
 
 
 def build_cleanup_messages(
@@ -36,8 +50,13 @@ def build_cleanup_messages(
     recent: Sequence[str],
     glossary: Iterable[str],
     tone: str,
+    smart_correct: bool = True,
 ) -> list[dict[str, str]]:
-    """Assemble the system+user messages for the cleanup call."""
+    """Assemble the system+user messages for the cleanup call.
+
+    ``smart_correct`` toggles the self-correction (retraction) behaviour; when
+    off, the prompt still cleans fillers/punctuation but preserves every value.
+    """
     parts: list[str] = [f"Tone: {tone}"]
 
     terms = [t.strip() for t in glossary if t and t.strip()]
@@ -51,7 +70,7 @@ def build_cleanup_messages(
 
     parts.append("Transcript to clean:\n" + raw)
     return [
-        {"role": "system", "content": _SYSTEM},
+        {"role": "system", "content": _system_prompt(smart_correct)},
         {"role": "user", "content": "\n\n".join(parts)},
     ]
 
@@ -74,7 +93,9 @@ def clean_text(
         return raw
 
     recent = list(recent)[: cfg.cleanup_context_count]
-    messages = build_cleanup_messages(raw, recent=recent, glossary=glossary, tone=tone)
+    messages = build_cleanup_messages(
+        raw, recent=recent, glossary=glossary, tone=tone, smart_correct=cfg.smart_correct
+    )
     complete = complete or _groq_complete
     try:
         cleaned = complete(messages, cfg)

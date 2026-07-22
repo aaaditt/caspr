@@ -22,6 +22,35 @@ def test_system_prompt_describes_self_correction():
     assert "only" in system and "cleaned text" in system
 
 
+def test_messages_include_self_correction_when_smart_correct_on():
+    msgs = build_cleanup_messages(
+        "x", recent=[], glossary=[], tone="balanced", smart_correct=True
+    )
+    system = msgs[0]["content"].lower()
+    assert "scratch that" in system or "never mind" in system
+
+
+def test_messages_omit_self_correction_when_smart_correct_off():
+    msgs = build_cleanup_messages(
+        "x", recent=[], glossary=[], tone="balanced", smart_correct=False
+    )
+    system = msgs[0]["content"].lower()
+    assert "scratch that" not in system
+    assert "preserve" in system  # told to keep every stated value
+
+
+def test_clean_text_passes_smart_correct_flag_from_cfg():
+    cfg = Config(groq_api_key="gsk_x", smart_correct=False)
+    captured = {}
+
+    def capture(messages, cfg):
+        captured["system"] = messages[0]["content"].lower()
+        return "ok"
+
+    clean_text("raw", recent=[], glossary=[], tone="balanced", cfg=cfg, complete=capture)
+    assert "scratch that" not in captured["system"]
+
+
 def test_user_message_carries_tone_glossary_recent_and_raw():
     msgs = build_cleanup_messages(
         "meet at 6:30",
