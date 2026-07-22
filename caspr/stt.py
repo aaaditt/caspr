@@ -51,9 +51,14 @@ def create_transcriber(cfg):
 
         return GroqTranscriber(cfg)
     if resolved == "parakeet":
-        from .stt_parakeet import ParakeetTranscriber
+        try:
+            from .stt_parakeet import ParakeetTranscriber
 
-        return ParakeetTranscriber(cfg.device)
+            return ParakeetTranscriber(cfg.device)
+        except ImportError:
+            # The 'parakeet' extra isn't installed (auto-routing can land here on
+            # English). Fall back to Whisper instead of failing to load a model.
+            log.warning("parakeet engine unavailable; install the 'parakeet' extra. Using Whisper.")
     return Transcriber(cfg.model, cfg.device)
 
 

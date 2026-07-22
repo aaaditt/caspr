@@ -72,3 +72,27 @@ def test_create_transcriber_builds_groq():
     cfg = Config(engine="groq", groq_api_key="gsk_x")
     t = create_transcriber(cfg)
     assert t.name == "groq" and t.device == "cloud"
+
+
+def test_create_transcriber_falls_back_to_whisper_when_parakeet_missing(monkeypatch):
+    import sys
+    import types
+
+    import caspr.stt as stt
+
+    # Simulate the optional 'parakeet' extra not installed: importing the class fails.
+    fake_mod = types.ModuleType("caspr.stt_parakeet")  # lacks ParakeetTranscriber
+    monkeypatch.setitem(sys.modules, "caspr.stt_parakeet", fake_mod)
+
+    built = {}
+
+    class FakeWhisper:
+        def __init__(self, model, device):
+            built["model"] = model
+            self.name, self.device = model, device
+
+    monkeypatch.setattr(stt, "Transcriber", FakeWhisper)
+    cfg = Config(engine="parakeet", model="base", device="cpu")
+    t = create_transcriber(cfg)
+    assert built["model"] == "base"  # fell back to Whisper instead of crashing
+    assert t.name == "base"
