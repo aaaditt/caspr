@@ -18,9 +18,12 @@ except ImportError:  # optional dep not installed
 
 _WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 
+# Words with a Zipf frequency below this value are considered rare / unknown.
+DEFAULT_ZIPF_THRESHOLD: float = 3.0
+
 
 def flag_unknown_words(
-    text: str, personal_terms: Iterable[str], threshold: float = 3.0
+    text: str, personal_terms: Iterable[str], threshold: float = DEFAULT_ZIPF_THRESHOLD
 ) -> list[tuple[int, int]]:
     if zipf_frequency is None:  # 'spellcheck' extra not installed
         return []
@@ -33,3 +36,12 @@ def flag_unknown_words(
         if zipf_frequency(word, "en") < threshold:
             spans.append((m.start(), m.end()))
     return spans
+
+
+def is_known_word(word: str, personal_terms: Iterable[str], threshold: float = DEFAULT_ZIPF_THRESHOLD) -> bool:
+    """Return True if *word* is common enough or listed in *personal_terms*."""
+    if zipf_frequency is None:
+        return True  # can't tell — assume fine
+    if word.strip().lower() in {t.strip().lower() for t in personal_terms}:
+        return True
+    return zipf_frequency(word, "en") >= threshold
