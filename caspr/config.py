@@ -49,6 +49,8 @@ class Config:
     # -- Hands-free -----------------------------------------------------------
     handsfree_double_tap: bool = True  # double-tap the hotkey to toggle hands-free
     double_tap_ms: int = 400  # max gap between taps to count as a double-tap
+    # Schema version — increment when adding fields that need migration logic.
+    config_version: int = 1
 
 
 def default_config_path() -> Path:
