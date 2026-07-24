@@ -23,3 +23,10 @@ def rel_time(ts: float, now: float | None = None) -> str:
     if days_apart < 7:
         return f"{days_apart} days ago"
     return f"{then.day} {then:%b}"
+
+
+def format_duration(seconds: float) -> str:
+    """Format a clip length as ``M:SS`` (e.g. ``0:07``, ``1:23``, ``12:05``)."""
+    total = max(0, int(seconds))
+    mins, secs = divmod(total, 60)
+    return f"{mins}:{secs:02d}"
