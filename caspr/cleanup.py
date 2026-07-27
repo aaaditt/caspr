@@ -13,6 +13,7 @@ audio never leaves the machine, and ``cleanup_enabled=False`` skips the cloud en
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Iterable, Sequence
 
 log = logging.getLogger(__name__)
@@ -34,10 +35,39 @@ _PRESERVE = (
     "reorder, or drop content even if the speaker seems to change their mind. "
 )
 _OUTRO = (
-    "Never add facts, never answer questions, never explain — only rewrite what was "
-    "said. Preserve the speaker's meaning and language. Match the requested tone and "
-    "prefer the glossary spellings. Output only the cleaned text, nothing else."
+    "Never add facts, never answer questions, never explain, never summarize or "
+    "condense — only rewrite what was said, preserving every point at its original "
+    "length and level of detail. Preserve the speaker's meaning and language. Match "
+    "the requested tone and prefer the glossary spellings. The 'recent dictations' "
+    "above are reference only — never repeat, quote, or continue them in your "
+    "output. Output ONLY the cleaned text itself, with no preamble or labels (e.g. "
+    "'Here is the polished version:') and no surrounding quotes — nothing else."
 )
+
+# Small/fast models sometimes prepend chatty meta-commentary before the actual
+# cleaned text despite being told not to; strip a single leading line like
+# "Here is the polished version:" or "Sure, here's the cleaned text:".
+_PREAMBLE_RE = re.compile(
+    r"^(sure[,!]?\s*)?(here('s| is)|the following is)\b[^:\n]*:\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_preamble(text: str) -> str:
+    stripped = _PREAMBLE_RE.sub("", text, count=1).strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in "\"'":
+        stripped = stripped[1:-1].strip()
+    return stripped or text
+
+
+def _leaks_recent_context(cleaned: str, recent: Sequence[str]) -> bool:
+    """True if the model echoed a prior dictation into this one's output —
+    the failure mode behind "it typed out everything I've ever said"."""
+    for line in recent:
+        line = line.strip()
+        if len(line) >= 8 and line in cleaned:
+            return True
+    return False
 
 
 def _system_prompt(smart_correct: bool) -> str:
@@ -102,8 +132,13 @@ def clean_text(
     except Exception:
         log.warning("cleanup call failed; falling back to raw text", exc_info=True)
         return raw
-    cleaned = (cleaned or "").strip()
-    return cleaned or raw
+    cleaned = _strip_preamble((cleaned or "").strip())
+    if not cleaned:
+        return raw
+    if _leaks_recent_context(cleaned, recent):
+        log.warning("cleanup output leaked prior dictation context; falling back to raw")
+        return raw
+    return cleaned
 
 
 def _groq_complete(messages: list[dict[str, str]], cfg) -> str:

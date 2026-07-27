@@ -123,6 +123,47 @@ def test_clean_text_falls_back_to_raw_on_empty_output():
     assert out == "raw text"
 
 
+def test_system_prompt_forbids_preamble_labels():
+    msgs = build_cleanup_messages("hi", recent=[], glossary=[], tone="balanced")
+    system = msgs[0]["content"].lower()
+    assert "no preamble" in system or "without any" in system or "labels" in system
+
+
+def test_system_prompt_forbids_summarizing():
+    msgs = build_cleanup_messages("hi", recent=[], glossary=[], tone="balanced")
+    system = msgs[0]["content"].lower()
+    assert "summar" in system or "condense" in system
+
+
+def test_clean_text_strips_leading_preamble_line():
+    cfg = Config(groq_api_key="gsk_x")
+    out = clean_text(
+        "meet at 630",
+        recent=[],
+        glossary=[],
+        tone="balanced",
+        cfg=cfg,
+        complete=lambda m, c: "Here is the polished version:\nMeet at 6:30.",
+    )
+    assert out == "Meet at 6:30."
+
+
+def test_clean_text_falls_back_to_raw_when_output_leaks_recent_context():
+    cfg = Config(groq_api_key="gsk_x")
+    recent = ["Thanks for the update on the Q3 roadmap deck."]
+    out = clean_text(
+        "meet at 630",
+        recent=recent,
+        glossary=[],
+        tone="balanced",
+        cfg=cfg,
+        complete=lambda m, c: (
+            "Meet at 6:30.\nThanks for the update on the Q3 roadmap deck."
+        ),
+    )
+    assert out == "meet at 630"
+
+
 def test_clean_text_truncates_recent_to_context_count():
     cfg = Config(groq_api_key="gsk_x", cleanup_context_count=3)
     captured = {}
