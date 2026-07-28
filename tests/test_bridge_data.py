@@ -237,7 +237,7 @@ def test_bootstrap_exposes_groq_stt_model_and_smart_correct(tmp_path):
 
 def test_bootstrap_exposes_cleanup_without_leaking_key(tmp_path):
     controller = AppController(
-        Config(groq_api_key="gsk_topsecret"),
+        Config(groq_api_key="gsk_topsecret", cleanup_enabled=True),
         config_path=tmp_path / "cfg.json",
         history_path=tmp_path / "h.db",
     )

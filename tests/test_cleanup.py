@@ -40,7 +40,7 @@ def test_messages_omit_self_correction_when_smart_correct_off():
 
 
 def test_clean_text_passes_smart_correct_flag_from_cfg():
-    cfg = Config(groq_api_key="gsk_x", smart_correct=False)
+    cfg = Config(groq_api_key="gsk_x", smart_correct=False, cleanup_enabled=True)
     captured = {}
 
     def capture(messages, cfg):
@@ -66,7 +66,7 @@ def test_user_message_carries_tone_glossary_recent_and_raw():
 
 
 def test_clean_text_returns_model_output_on_success():
-    cfg = Config(groq_api_key="gsk_x")
+    cfg = Config(groq_api_key="gsk_x", cleanup_enabled=True)
     out = clean_text(
         "meet at 5:30 actually no 6:30",
         recent=[],
@@ -94,7 +94,7 @@ def test_clean_text_falls_back_to_raw_when_disabled():
 
 
 def test_clean_text_falls_back_to_raw_when_no_api_key():
-    cfg = Config(groq_api_key="   ")
+    cfg = Config(groq_api_key="   ", cleanup_enabled=True)
     out = clean_text(
         "raw text", recent=[], glossary=[], tone="balanced", cfg=cfg,
         complete=lambda m, c: "cleaned",
@@ -103,7 +103,7 @@ def test_clean_text_falls_back_to_raw_when_no_api_key():
 
 
 def test_clean_text_falls_back_to_raw_on_exception():
-    cfg = Config(groq_api_key="gsk_x")
+    cfg = Config(groq_api_key="gsk_x", cleanup_enabled=True)
 
     def boom(messages, cfg):
         raise RuntimeError("groq down")
@@ -115,7 +115,7 @@ def test_clean_text_falls_back_to_raw_on_exception():
 
 
 def test_clean_text_falls_back_to_raw_on_empty_output():
-    cfg = Config(groq_api_key="gsk_x")
+    cfg = Config(groq_api_key="gsk_x", cleanup_enabled=True)
     out = clean_text(
         "raw text", recent=[], glossary=[], tone="balanced", cfg=cfg,
         complete=lambda m, c: "   ",
@@ -136,7 +136,7 @@ def test_system_prompt_forbids_summarizing():
 
 
 def test_clean_text_strips_leading_preamble_line():
-    cfg = Config(groq_api_key="gsk_x")
+    cfg = Config(groq_api_key="gsk_x", cleanup_enabled=True)
     out = clean_text(
         "meet at 630",
         recent=[],
@@ -149,7 +149,7 @@ def test_clean_text_strips_leading_preamble_line():
 
 
 def test_clean_text_falls_back_to_raw_when_output_leaks_recent_context():
-    cfg = Config(groq_api_key="gsk_x")
+    cfg = Config(groq_api_key="gsk_x", cleanup_enabled=True)
     recent = ["Thanks for the update on the Q3 roadmap deck."]
     out = clean_text(
         "meet at 630",
@@ -165,7 +165,7 @@ def test_clean_text_falls_back_to_raw_when_output_leaks_recent_context():
 
 
 def test_clean_text_truncates_recent_to_context_count():
-    cfg = Config(groq_api_key="gsk_x", cleanup_context_count=3)
+    cfg = Config(groq_api_key="gsk_x", cleanup_context_count=3, cleanup_enabled=True)
     captured = {}
 
     def capture(messages, cfg):

@@ -33,7 +33,8 @@ class Config:
     hotkey_open_history: str = ""
     # -- AI cleanup (Groq) --------------------------------------------------
     # Master switch: False = raw mode, transcript never leaves the machine.
-    cleanup_enabled: bool = True
+    # Defaults off: local dictation only, no cloud round-trip, opt in via Settings.
+    cleanup_enabled: bool = False
     groq_api_key: str = ""  # from console.groq.com; blank disables cleanup
     groq_model: str = "llama-3.1-8b-instant"  # fast Groq model for cleanup
     groq_stt_model: str = "whisper-large-v3-turbo"  # Groq cloud transcription model

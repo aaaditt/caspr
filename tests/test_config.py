@@ -62,7 +62,7 @@ def test_default_config_path_is_under_appdata():
 
 def test_cleanup_defaults():
     cfg = Config()
-    assert cfg.cleanup_enabled is True
+    assert cfg.cleanup_enabled is False
     assert cfg.groq_api_key == ""
     assert cfg.groq_model == "llama-3.1-8b-instant"
     assert cfg.cleanup_context_count == 10
