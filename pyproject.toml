@@ -15,6 +15,7 @@ dependencies = [
     "pywin32>=306",
     "aiohttp>=3.9",
     "groq>=0.11",
+    "vosk>=0.3.45",
 ]
 
 [project.optional-dependencies]
