@@ -35,6 +35,9 @@ class FakeRecorder:
     def set_device(self, device):
         pass
 
+    def set_block_callback(self, cb):
+        pass
+
 
 @pytest.fixture
 def controller(tmp_path, monkeypatch):

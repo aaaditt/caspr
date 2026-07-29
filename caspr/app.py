@@ -22,8 +22,10 @@ from . import cleanup, context, inject
 from .audio import SAMPLE_RATE, Recorder
 from .config import Config, save_config
 from .dictionary import build_initial_prompt
+from .diff import compute_correction
 from .history import History
 from .hotkeys import GestureInterpreter
+from .live_typing import LiveTypingSession
 from .replacements import apply_replacements
 from .spellcheck import flag_unknown_words
 
@@ -58,6 +60,9 @@ class AppController(QObject):
         self.paused = False
         self.handsfree = False
         self._pending_exe: str | None = None  # foreground app captured at record start
+        self._streaming_engine = None  # loaded in _load_model; None disables live typing
+        self._live_session: LiveTypingSession | None = None
+        self._live_thread: threading.Thread | None = None
         self._gestures = GestureInterpreter(
             start=self._begin_recording,
             commit=self._commit_recording,
@@ -137,6 +142,9 @@ class AppController(QObject):
                 transcriber.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
             flag_unknown_words("warmup", [])  # wordfreq loads its data lazily
             self._transcriber = transcriber
+            from . import stt_streaming
+
+            self._streaming_engine = stt_streaming.create_streaming_engine(self.cfg)
             name = getattr(transcriber, "name", self.cfg.model)
             self._set_state("idle", f"{name} on {transcriber.device}")
         except Exception as e:
@@ -169,6 +177,18 @@ class AppController(QObject):
         self._pending_exe = context.foreground_exe()  # for per-app tone
         try:
             self._recorder.start()
+            if self._streaming_engine is not None and self.cfg.injection == "type":
+                try:
+                    stream = self._streaming_engine.new_stream()
+                    self._live_session = LiveTypingSession(stream, inject.type_text, inject.backspace)
+                    self._recorder.set_block_callback(self._live_session.feed_block)
+                    self._live_thread = threading.Thread(target=self._live_session.run, daemon=True)
+                    self._live_thread.start()
+                except Exception:
+                    log.warning("failed to start live typing this session", exc_info=True)
+                    self._live_session = None
+            else:
+                self._live_session = None
             self.state_changed.emit("recording", "hands-free" if self.handsfree else "")
         except Exception as e:
             log.exception("could not start recording")
@@ -181,6 +201,10 @@ class AppController(QObject):
                 return
             self._state = "processing"
         audio = self._recorder.stop()
+        self._recorder.set_block_callback(None)
+        if self._live_session is not None:
+            self._live_session.finish()
+            self._live_thread.join(timeout=5.0)
         self.state_changed.emit("processing", "")
         self._executor.submit(self._pipeline, audio)
 
@@ -191,6 +215,11 @@ class AppController(QObject):
                 return
             self._state = "idle"
         self._recorder.stop()
+        self._recorder.set_block_callback(None)
+        if self._live_session is not None:
+            self._live_session.cancel()
+            self._live_thread.join(timeout=5.0)
+            self._live_session = None
         self.state_changed.emit("idle", "")
 
     def _set_handsfree(self, active: bool) -> None:
@@ -269,7 +298,16 @@ class AppController(QObject):
             )
             cleanup_s = time.perf_counter() - t_clean
             final = apply_replacements(cleaned, self.cfg.replacements)
-            inject.inject_text(final, self.cfg.injection)
+            if self._live_session is not None:
+                backspaces, insert_text = compute_correction(self._live_session.typed_text, final)
+                backspaces = min(backspaces, len(self._live_session.typed_text))
+                if backspaces:
+                    inject.backspace(backspaces)
+                if insert_text:
+                    inject.type_text(insert_text)
+                self._live_session = None
+            else:
+                inject.inject_text(final, self.cfg.injection)
             total_s = time.perf_counter() - t0
             spans = flag_unknown_words(
                 final, self.cfg.dictionary, self.cfg.flag_zipf_threshold
