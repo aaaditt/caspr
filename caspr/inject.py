@@ -33,7 +33,6 @@ _INPUT_KEYBOARD = 1
 _KEYEVENTF_UNICODE = 0x0004
 _KEYEVENTF_KEYUP = 0x0002
 _SENDINPUT_CHUNK = 256  # events per SendInput call
-_VK_BACK = 0x08
 
 _ULONG_PTR = ctypes.POINTER(ctypes.c_ulong)
 
@@ -75,25 +74,6 @@ def type_text(text: str) -> None:
         sent = ctypes.windll.user32.SendInput(len(chunk), array, ctypes.sizeof(_INPUT))
         if sent != len(chunk):
             raise OSError(f"SendInput injected {sent}/{len(chunk)} events")
-
-
-def backspace(count: int) -> None:
-    """Send `count` Backspace key presses into the focused window via SendInput."""
-    if count <= 0:
-        return
-    events: list[_INPUT] = []
-    for _ in range(count):
-        for flags in (0, _KEYEVENTF_KEYUP):
-            inp = _INPUT()
-            inp.type = _INPUT_KEYBOARD
-            inp.ki = _KEYBDINPUT(_VK_BACK, 0, flags, 0, None)
-            events.append(inp)
-    for start in range(0, len(events), _SENDINPUT_CHUNK):
-        chunk = events[start : start + _SENDINPUT_CHUNK]
-        array = (_INPUT * len(chunk))(*chunk)
-        sent = ctypes.windll.user32.SendInput(len(chunk), array, ctypes.sizeof(_INPUT))
-        if sent != len(chunk):
-            raise OSError(f"SendInput injected {sent}/{len(chunk)} backspace events")
 
 
 def inject_text(text: str, method: str = "type") -> None:
