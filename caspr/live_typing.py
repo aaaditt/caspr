@@ -59,7 +59,7 @@ class LiveTypingSession:
             hypothesis = self._transcriber.feed(item)
             if not hypothesis or hypothesis == self.typed_text:
                 continue
-            log.info("live hypothesis: %r", hypothesis[:80])
+            log.debug("live hypothesis: %r", hypothesis[:80])
             backspaces, insert = compute_correction(self.typed_text, hypothesis)
             backspaces = min(backspaces, len(self.typed_text))  # hard safety clamp
             self._backspace(backspaces)
