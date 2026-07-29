@@ -56,6 +56,7 @@ class Recorder:
     def __init__(self, device: int | None = None, on_level=None):
         self._device = device
         self._on_level = on_level
+        self._on_block = None
         self._blocks: list[np.ndarray] = []
         self._stream = None
 
@@ -63,6 +64,13 @@ class Recorder:
         """Takes effect at the next start(); an in-flight recording finishes
         on the old device."""
         self._device = device
+
+    def set_block_callback(self, cb) -> None:
+        """`cb(block: np.ndarray)` is called with each raw ~100ms float32 block
+        as it arrives, in addition to the normal on_level meter callback. Set
+        to None to stop receiving blocks. Takes effect immediately, even for
+        an in-flight recording."""
+        self._on_block = cb
 
     def start(self) -> None:
         import sounddevice as sd  # deferred so unit tests don't need PortAudio
@@ -75,10 +83,13 @@ class Recorder:
         def callback(indata, frames, time_info, status):
             if status:
                 log.warning("audio callback status: %s", status)
+            block = indata[:, 0].copy()
             if len(self._blocks) < max_blocks:
-                self._blocks.append(indata[:, 0].copy())
+                self._blocks.append(block)
             if self._on_level is not None:
-                self._on_level(meter_level(indata[:, 0]))
+                self._on_level(meter_level(block))
+            if self._on_block is not None:
+                self._on_block(block)
 
         self._stream = sd.InputStream(
             samplerate=SAMPLE_RATE,
