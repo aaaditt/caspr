@@ -145,6 +145,7 @@ class AppController(QObject):
             from . import stt_streaming
 
             self._streaming_engine = stt_streaming.create_streaming_engine(self.cfg)
+            log.info("streaming engine: %s", self._streaming_engine)
             name = getattr(transcriber, "name", self.cfg.model)
             self._set_state("idle", f"{name} on {transcriber.device}")
         except Exception as e:
@@ -184,11 +185,16 @@ class AppController(QObject):
                     self._recorder.set_block_callback(self._live_session.feed_block)
                     self._live_thread = threading.Thread(target=self._live_session.run, daemon=True)
                     self._live_thread.start()
+                    log.info("live typing session started")
                 except Exception:
                     log.warning("failed to start live typing this session", exc_info=True)
                     self._live_session = None
             else:
                 self._live_session = None
+                log.info(
+                    "live typing skipped: streaming_engine=%s injection=%r",
+                    self._streaming_engine is not None, self.cfg.injection,
+                )
             self.state_changed.emit("recording", "hands-free" if self.handsfree else "")
         except Exception as e:
             log.exception("could not start recording")

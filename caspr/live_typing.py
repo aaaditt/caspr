@@ -10,10 +10,13 @@ concurrently with the hold while that executor stays idle.
 
 from __future__ import annotations
 
+import logging
 import queue
 from collections.abc import Callable
 
 from .diff import compute_correction
+
+log = logging.getLogger(__name__)
 
 _FINISH = object()
 _CANCEL = object()
@@ -56,6 +59,7 @@ class LiveTypingSession:
             hypothesis = self._transcriber.feed(item)
             if not hypothesis or hypothesis == self.typed_text:
                 continue
+            log.info("live hypothesis: %r", hypothesis)
             backspaces, insert = compute_correction(self.typed_text, hypothesis)
             backspaces = min(backspaces, len(self.typed_text))  # hard safety clamp
             self._backspace(backspaces)
