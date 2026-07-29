@@ -11,6 +11,9 @@ build/
 # Browser-automation QA artifacts
 .playwright-mcp/
 
+# Superpowers brainstorming visual-companion sessions
+.superpowers/
+
 # Whisper models / large fixtures cache
 models/
 *.bin
