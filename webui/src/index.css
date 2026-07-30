@@ -6,17 +6,15 @@
 @import '@fontsource/instrument-serif/400-italic.css';
 
 @theme {
-  --color-espresso: #151110;
-  --color-surface: #1c1715;
-  --color-raised: #241d1a;
-  --color-hairline: #2a221d;
-  --color-cream: #f6efe7;
-  --color-ink: #d9cec3;
-  --color-muted: #9c8f85;
-  --color-faint: #6f6359;
-  --color-coral: #ff8a65;
-  --color-amber: #ffb74d;
-  --color-ember: #ff5c49;
+  --color-paper: #fcfbf9;
+  --color-surface: #ffffff;
+  --color-raised: #f1eee7;
+  --color-hairline: #eae6de;
+  --color-ink: #1a1815;
+  --color-muted: #8a8378;
+  --color-faint: #b7afa0;
+  --color-verdant: #28382e;
+  --color-ember: #d64545;
   --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
   --font-display: 'Instrument Serif', Georgia, serif;
 }
@@ -29,15 +27,13 @@ body,
 
 body {
   margin: 0;
-  color: var(--color-cream);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden; /* app window — pages scroll internally */
   user-select: none; /* desktop feel; inputs opt back in */
-  background:
-    radial-gradient(640px 400px at 86% 112%, rgba(255, 138, 101, 0.07), transparent 62%),
-    var(--color-espresso);
+  background: var(--color-paper);
 }
 
 input,
@@ -46,11 +42,11 @@ textarea {
 }
 
 ::selection {
-  background: rgba(255, 138, 101, 0.3);
+  background: rgba(40, 56, 46, 0.16);
 }
 
 :focus-visible {
-  outline: 2px solid rgba(255, 183, 77, 0.55);
+  outline: 2px solid rgba(40, 56, 46, 0.45);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -59,7 +55,7 @@ textarea {
   width: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2e2620;
+  background: #ddd7cb;
   border-radius: 4px;
 }
 *::-webkit-scrollbar-track {
