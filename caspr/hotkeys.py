@@ -103,22 +103,18 @@ class PushToTalk:
         self._handles: list = []
 
     def start(self) -> None:
+        # suppress=True (tried previously, to stop the Windows key opening
+        # Start/Widgets) installs a low-level global keyboard hook that can
+        # block real key events system-wide -- the `keyboard` package's
+        # suppress mode is known to occasionally leave the OS keyboard state
+        # stuck/unresponsive. Never suppress here: a stray popup menu is a
+        # minor annoyance, a broken keyboard is not an acceptable trade.
         for part in self._parts:
-            # The Windows key reaches the OS shell (Start menu / Widgets) unless
-            # suppressed here -- relying on Windows' own "another key held"
-            # heuristic isn't reliable enough. Other modifiers (ctrl/alt/shift)
-            # are left unsuppressed since they're used constantly outside this
-            # chord and blocking them globally would break normal typing.
-            suppress = canonical_key(part) == "windows"
             self._handles.append(
-                keyboard.on_press_key(
-                    part, lambda _e, p=part: self._handle_down(p), suppress=suppress
-                )
+                keyboard.on_press_key(part, lambda _e, p=part: self._handle_down(p))
             )
             self._handles.append(
-                keyboard.on_release_key(
-                    part, lambda _e, p=part: self._handle_up(p), suppress=suppress
-                )
+                keyboard.on_release_key(part, lambda _e, p=part: self._handle_up(p))
             )
         log.info("push-to-talk armed on %r", "+".join(self._parts))
 
