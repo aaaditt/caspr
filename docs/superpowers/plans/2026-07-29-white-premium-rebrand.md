@@ -794,7 +794,9 @@ to:
 
 (The toggle knob was `cream`, the old primary-foreground token; its role — "a light circle that reads clearly against both the on and off track colors" — maps to `paper`, not `ink`.)
 
-- [ ] **Step 3: Fix the shared `inputCls` constant (line 130) and its 3 usages (lines 291, 318, 373 in the new numbering do not need separate edits — they consume `inputCls` or the class list already fixed here)**
+- [ ] **Step 3: Fix the shared `inputCls` constant (line 130)**
+
+Every element that applies `inputCls` (directly or via a template literal built on it) picks up this fix automatically — no separate edit needed at those call sites. Line 373 is a different element that does NOT use `inputCls` (it has its own standalone `className` string) — that one is handled separately in Step 6 below.
 
 Change:
 
