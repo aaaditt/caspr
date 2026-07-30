@@ -48,7 +48,7 @@ export function Dictionary() {
           onChange={(e) => setNewTerm(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTerm()}
           placeholder="Add a word caspr should know…"
-          className="mb-3 rounded-xl border border-hairline bg-surface px-4 py-2.5 text-[13.5px] text-cream placeholder:text-faint focus:border-[#3a3028] focus:outline-none"
+          className="mb-3 rounded-xl border border-hairline bg-surface px-4 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-verdant focus:outline-none"
         />
         {dict.terms.length === 0 ? (
           <p className="mt-4 text-center font-display text-[15px] italic text-muted">

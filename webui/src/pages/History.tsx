@@ -20,7 +20,7 @@ function IconButton({
       title={title}
       onClick={onClick}
       className={`grid h-7 w-7 place-items-center rounded-lg text-muted transition-colors hover:bg-raised ${
-        danger ? 'hover:text-ember' : 'hover:text-cream'
+        danger ? 'hover:text-ember' : 'hover:text-ink'
       }`}
     >
       {children}
@@ -77,7 +77,7 @@ export function History() {
         value={query}
         onChange={(e) => onSearch(e.target.value)}
         placeholder="Search dictations…"
-        className="w-full rounded-xl border border-hairline bg-surface px-4 py-2.5 text-[13.5px] text-cream placeholder:text-faint focus:border-[#3a3028] focus:outline-none"
+        className="w-full rounded-xl border border-hairline bg-surface px-4 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-verdant focus:outline-none"
       />
       {entries !== null && entries.length === 0 ? (
         <div className="grid flex-1 place-items-center">
@@ -104,7 +104,7 @@ export function History() {
               <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <IconButton title={copiedId === entry.id ? 'Copied' : 'Copy text'} onClick={() => copy(entry)}>
                   {copiedId === entry.id ? (
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-verdant">
                       <path d="M2 7.5 5.5 11 12 3.5" />
                     </svg>
                   ) : (
