@@ -30,12 +30,16 @@ Two decisions were made via the brainstorming visual companion (mockups in
 | Token | Value | Role |
 |---|---|---|
 | `paper` (bg) | `#FCFBF9` | App background |
-| `surface` | `#FFFFFF` | Cards, sidebar, raised panels |
+| `surface` | `#FFFFFF` | Cards, raised panels |
 | `ink` | `#1A1815` | Primary text, primary buttons, active nav |
 | `muted` | `#8A8378` | Secondary text, timestamps, inactive nav |
 | `hairline` | `#EAE6DE` | Borders |
 | `verdant` | `#28382E` | The one accent — active states, logo mark, focus ring, links |
-| `verdant-soft` | `#28382E` @ 8–10% alpha | Hover backgrounds, subtle fills |
+
+Not implemented: a `verdant-soft` token (`verdant` @ 8–10% alpha) was planned for
+hover backgrounds, but the implementation plan simplified this away — hover
+fills use `raised` instead, and nothing in the shipped code references
+`verdant-soft`.
 
 State colors (functional signals, not brand color — kept close to universal
 convention rather than reusing the accent for everything):
@@ -85,8 +89,10 @@ Used in:
   sidebar, and the pill get a subtle shadow (`0 2px 12px rgba(0,0,0,.06)`
   order of magnitude) for a "premium light UI" depth cue, on top of the
   existing 1px hairline border.
-- **Sidebar**: white surface; active nav item = `ink` background + white
-  text; inactive = `muted` text.
+- **Sidebar**: `paper` background, matching the page rather than standing
+  out as a distinct white surface — separated from the content area only
+  by the hairline border on its right edge; active nav item = `ink`
+  background + white text; inactive = `muted` text.
 - **Recording pill overlay**: paper/white pill, soft shadow, verdant
   waveform bars (see above).
 - **Buttons**: primary = `ink` background / white text (was amber

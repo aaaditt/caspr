@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -16,11 +16,10 @@ from PySide6.QtGui import (
     QIcon,
     QLinearGradient,
     QPainter,
-    QPen,
     QPixmap,
 )
 
-from .style import ACCENT, BG, CORAL, HAIRLINE, STATE_COLORS, SURFACE
+from .style import ACCENT, BG, HAIRLINE, STATE_COLORS, SURFACE
 
 _SIZES = (16, 24, 32, 48, 64, 128, 256)
 

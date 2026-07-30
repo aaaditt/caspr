@@ -14,7 +14,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from .icons import glyph_icon
-from .style import ACCENT, CORAL, FG, FLAG, SURFACE, flagged_html
+from .style import ACCENT, CORAL, FG, FLAG, HAIRLINE, SURFACE, flagged_html
 
 FADES_ENABLED = True  # kill switch: opacity animation on translucent windows
 _SHADOW = 10  # transparent margin around the capsule for the painted shadow
@@ -243,7 +243,7 @@ class Pill(QWidget):
         fill = QColor(SURFACE)
         fill.setAlpha(244)
         painter.setBrush(fill)
-        painter.setPen(QColor(255, 255, 255, 18))
+        painter.setPen(QColor(HAIRLINE))
         painter.drawRoundedRect(body, body.height() / 2, body.height() / 2)
 
     def mousePressEvent(self, _event) -> None:

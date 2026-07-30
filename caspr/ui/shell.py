@@ -17,8 +17,9 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from .bridge import Bridge
+from .style import BG
 
-_VELVET_BG = "#151110"
+_APP_BG = BG
 
 
 class Shell(QWidget):
@@ -37,7 +38,7 @@ class Shell(QWidget):
         layout.addWidget(self._view)
 
         page = self._view.page()
-        page.setBackgroundColor(QColor(_VELVET_BG))  # no white flash on first paint
+        page.setBackgroundColor(QColor(_APP_BG))  # matches app bg — no flash on first paint
         self._channel = QWebChannel(page)
         self._bridge = Bridge(self, controller)
         self._channel.registerObject("caspr", self._bridge)

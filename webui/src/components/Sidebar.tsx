@@ -2,16 +2,16 @@ import { bridge } from '../bridge'
 
 export type Page = 'home' | 'history' | 'dictionary' | 'settings'
 
-const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
+const NAV: { id: Page; label: string; icon: (active: boolean) => React.ReactNode }[] = [
   {
     id: 'home',
     label: 'Home',
-    icon: <path d="M2.5 8.5 8 3.5l5.5 5V14h-3.8v-3.6H6.3V14H2.5z" />,
+    icon: () => <path d="M2.5 8.5 8 3.5l5.5 5V14h-3.8v-3.6H6.3V14H2.5z" />,
   },
   {
     id: 'history',
     label: 'History',
-    icon: (
+    icon: () => (
       <>
         <circle cx="8" cy="8" r="5.8" />
         <path d="M8 4.8V8l2.2 2.2" />
@@ -21,16 +21,22 @@ const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
   {
     id: 'dictionary',
     label: 'Dictionary',
-    icon: <path d="M3.2 13.2a1.8 1.8 0 0 1 1.8-1.8h7.8V1.8H5A1.8 1.8 0 0 0 3.2 3.6zm0 0A1.8 1.8 0 0 0 5 15h7.8v-3.6" />,
+    icon: () => (
+      <path d="M3.2 13.2a1.8 1.8 0 0 1 1.8-1.8h7.8V1.8H5A1.8 1.8 0 0 0 3.2 3.6zm0 0A1.8 1.8 0 0 0 5 15h7.8v-3.6" />
+    ),
   },
   {
     id: 'settings',
     label: 'Settings',
-    icon: (
+    // The two circles "punch through" the lines to look like slider holes. They need to
+    // show whatever is BEHIND the icon (the row background), not the icon's own stroke
+    // color — so they're keyed off `active`/row background directly rather than
+    // currentColor, which would just follow the icon's own (inverted) stroke color.
+    icon: (active) => (
       <>
         <path d="M2 5h12M2 11h12" />
-        <circle cx="6" cy="5" r="1.7" fill="var(--color-paper)" />
-        <circle cx="10.5" cy="11" r="1.7" fill="var(--color-paper)" />
+        <circle cx="6" cy="5" r="1.7" fill={active ? 'var(--color-ink)' : 'var(--color-paper)'} />
+        <circle cx="10.5" cy="11" r="1.7" fill={active ? 'var(--color-ink)' : 'var(--color-paper)'} />
       </>
     ),
   },
@@ -80,9 +86,8 @@ export function Sidebar({ page, onNavigate }: { page: Page; onNavigate: (p: Page
                 strokeWidth="1.5"
                 strokeLinejoin="round"
                 strokeLinecap="round"
-                className={active ? 'text-verdant' : ''}
               >
-                {item.icon}
+                {item.icon(active)}
               </svg>
               {item.label}
             </button>
