@@ -17,11 +17,11 @@ const rise = {
 
 const DOT: Record<string, string> = {
   loading: 'bg-muted',
-  idle: 'bg-amber shadow-[0_0_12px_rgba(255,183,77,.8)]',
-  recording: 'bg-ember shadow-[0_0_14px_rgba(255,92,73,.9)]',
-  processing: 'bg-coral shadow-[0_0_12px_rgba(255,138,101,.8)]',
-  error: 'bg-[#e05252] shadow-[0_0_12px_rgba(224,82,82,.8)]',
-  paused: 'bg-[#b8a06a]',
+  idle: 'bg-ink',
+  recording: 'bg-ember shadow-[0_0_14px_rgba(214,69,69,.55)]',
+  processing: 'bg-verdant shadow-[0_0_12px_rgba(40,56,46,.45)]',
+  error: 'bg-ember shadow-[0_0_12px_rgba(214,69,69,.55)]',
+  paused: 'bg-muted',
 }
 
 function greeting(): string {
@@ -73,7 +73,7 @@ export function Home() {
           {(effective === 'idle' || effective === 'recording') && (
             <span
               className={`absolute inset-[-5px] rounded-full opacity-40 [animation:pulse-ring_2.6s_ease-out_infinite] ${
-                effective === 'recording' ? 'bg-ember' : 'bg-amber'
+                effective === 'recording' ? 'bg-ember' : 'bg-verdant'
               }`}
             />
           )}
@@ -102,7 +102,7 @@ export function Home() {
             key={s.caption}
             className="p-4 transition-transform duration-200 hover:-translate-y-0.5"
           >
-            <div className="text-[26px] font-semibold tabular-nums leading-none text-[#ffd7b8]">
+            <div className="text-[26px] font-semibold tabular-nums leading-none text-ink">
               {s.value}
             </div>
             <div className="mt-1.5 text-[11.5px] text-muted">{s.caption}</div>
