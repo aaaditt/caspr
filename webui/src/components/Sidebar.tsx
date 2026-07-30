@@ -29,25 +29,36 @@ const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
     icon: (
       <>
         <path d="M2 5h12M2 11h12" />
-        <circle cx="6" cy="5" r="1.7" fill="var(--color-espresso)" />
-        <circle cx="10.5" cy="11" r="1.7" fill="var(--color-espresso)" />
+        <circle cx="6" cy="5" r="1.7" fill="var(--color-paper)" />
+        <circle cx="10.5" cy="11" r="1.7" fill="var(--color-paper)" />
       </>
     ),
   },
 ]
 
+function LogoMark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 34 34" className="shrink-0">
+      <rect x="6" y="13" width="3.5" height="8" rx="1.75" fill="var(--color-verdant)" />
+      <rect x="12" y="8" width="3.5" height="18" rx="1.75" fill="var(--color-verdant)" />
+      <rect x="18" y="4" width="3.5" height="26" rx="1.75" fill="var(--color-verdant)" />
+      <rect x="24" y="10" width="3.5" height="14" rx="1.75" fill="var(--color-verdant)" />
+    </svg>
+  )
+}
+
 export function Sidebar({ page, onNavigate }: { page: Page; onNavigate: (p: Page) => void }) {
   return (
-    <aside className="flex w-47 shrink-0 flex-col border-r border-hairline bg-[#181312]">
+    <aside className="flex w-47 shrink-0 flex-col border-r border-hairline bg-paper shadow-[2px_0_12px_rgba(0,0,0,0.03)]">
       <div
-        className="flex items-baseline gap-1.5 px-5 pt-5 pb-6"
+        className="flex items-baseline gap-2 px-5 pt-5 pb-6"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         onMouseDown={(e) => {
           if (e.button === 0) bridge()?.win_drag()
         }}
       >
         <span className="font-display text-[21px] italic leading-none">caspr</span>
-        <span className="h-[5px] w-[5px] rounded-full bg-coral" />
+        <LogoMark />
       </div>
       <nav className="flex flex-col gap-0.5 px-2.5">
         {NAV.map((item) => {
@@ -57,7 +68,7 @@ export function Sidebar({ page, onNavigate }: { page: Page; onNavigate: (p: Page
               key={item.id}
               onClick={() => onNavigate(item.id)}
               className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13.5px] transition-colors ${
-                active ? 'bg-raised font-medium text-cream' : 'text-muted hover:text-ink'
+                active ? 'bg-ink font-medium text-paper' : 'text-muted hover:text-ink'
               }`}
             >
               <svg
@@ -69,7 +80,7 @@ export function Sidebar({ page, onNavigate }: { page: Page; onNavigate: (p: Page
                 strokeWidth="1.5"
                 strokeLinejoin="round"
                 strokeLinecap="round"
-                className={active ? 'text-amber' : ''}
+                className={active ? 'text-verdant' : ''}
               >
                 {item.icon}
               </svg>
