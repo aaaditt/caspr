@@ -14,7 +14,7 @@ export function TitleBar() {
       <button
         title="Minimize"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        className="grid h-7 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-cream"
+        className="grid h-7 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-ink"
         onClick={() => bridge()?.win_minimize()}
       >
         <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4">

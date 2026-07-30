@@ -1,7 +1,7 @@
 const BARS = 28
 const IDLE_HEIGHTS = [38, 62, 45, 80, 55, 70, 42, 88, 50, 66, 58, 76, 40, 84]
 
-/** Ember VU meter. `levels` (0..1 per bar, newest last) drives it live;
+/** Verdant VU meter. `levels` (0..1 per bar, newest last) drives it live;
  *  with no levels it breathes gently — the app's heartbeat. */
 export function Waveform({
   levels,
@@ -20,7 +20,7 @@ export function Waveform({
         return (
           <span
             key={i}
-            className="w-[3px] rounded-full bg-gradient-to-b from-coral to-amber"
+            className="w-[3px] rounded-full bg-gradient-to-b from-verdant to-verdant/60"
             style={
               live
                 ? { height, transition: 'height 90ms ease-out' }
