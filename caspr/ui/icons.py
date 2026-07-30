@@ -20,33 +20,28 @@ from PySide6.QtGui import (
     QPixmap,
 )
 
-from .style import BG, CORAL, ACCENT, STATE_COLORS, SURFACE
+from .style import ACCENT, BG, CORAL, HAIRLINE, STATE_COLORS, SURFACE
 
 _SIZES = (16, 24, 32, 48, 64, 128, 256)
 
 
-def _paint_mic(painter: QPainter, size: float) -> None:
-    """Mic capsule + cradle arc + stand in the coral→amber Velvet gradient."""
+_BAR_HEIGHTS = (0.24, 0.53, 0.76, 0.41)  # relative to size — tallest bar third
+
+
+def _paint_waveform(painter: QPainter, size: float) -> None:
+    """Four uneven verdant bars — the waveform-bars logo mark."""
     s = size
-    gradient = QLinearGradient(0, s * 0.18, 0, s * 0.80)
-    gradient.setColorAt(0.0, QColor(CORAL))
-    gradient.setColorAt(1.0, QColor(ACCENT))
-
-    pen = QPen(QColor(ACCENT))
-    pen.setWidthF(max(1.0, s * 0.07))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-
-    body = QRectF(s * 0.38, s * 0.18, s * 0.24, s * 0.34)
+    bar_w = s * 0.10
+    gap = s * 0.065
+    total_w = len(_BAR_HEIGHTS) * bar_w + (len(_BAR_HEIGHTS) - 1) * gap
+    start_x = (s - total_w) / 2
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(gradient)
-    painter.drawRoundedRect(body, body.width() / 2, body.width() / 2)
-
-    painter.setPen(pen)
-    painter.setBrush(Qt.BrushStyle.NoBrush)
-    cradle = QRectF(s * 0.30, s * 0.28, s * 0.40, s * 0.40)
-    painter.drawArc(cradle, 180 * 16, -180 * 16)  # opens upward, hugs the capsule
-    painter.drawLine(QPointF(s * 0.50, s * 0.68), QPointF(s * 0.50, s * 0.78))
-    painter.drawLine(QPointF(s * 0.40, s * 0.80), QPointF(s * 0.60, s * 0.80))
+    painter.setBrush(QColor(ACCENT))
+    for i, h_frac in enumerate(_BAR_HEIGHTS):
+        bar_h = s * h_frac
+        x = start_x + i * (bar_w + gap)
+        y = (s - bar_h) / 2
+        painter.drawRoundedRect(QRectF(x, y, bar_w, bar_h), bar_w / 2, bar_w / 2)
 
 
 def _app_pixmap(size: int) -> QPixmap:
@@ -59,14 +54,14 @@ def _app_pixmap(size: int) -> QPixmap:
     gradient.setColorAt(0.0, QColor(SURFACE))
     gradient.setColorAt(1.0, QColor(BG))
     painter.setBrush(gradient)
-    painter.setPen(QColor("#3a2c22"))
+    painter.setPen(QColor(HAIRLINE))
     radius = size * 0.22
     inset = max(0.5, size * 0.02)
     painter.drawRoundedRect(
         QRectF(inset, inset, size - 2 * inset, size - 2 * inset), radius, radius
     )
 
-    _paint_mic(painter, size)
+    _paint_waveform(painter, size)
     painter.end()
     return pixmap
 
