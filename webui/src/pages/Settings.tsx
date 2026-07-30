@@ -37,7 +37,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-[10px] border border-hairline bg-raised py-1.5 pl-3 pr-8 text-[13px] text-cream focus:border-[#3a3028] focus:outline-none"
+        className="appearance-none rounded-[10px] border border-hairline bg-raised py-1.5 pl-3 pr-8 text-[13px] text-ink focus:border-verdant focus:outline-none"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -67,11 +67,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (on: boolea
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative h-[22px] w-[38px] rounded-full transition-colors ${
-        checked ? 'bg-gradient-to-r from-coral to-amber' : 'bg-raised border border-hairline'
+        checked ? 'bg-verdant' : 'bg-raised border border-hairline'
       }`}
     >
       <span
-        className={`absolute top-[3px] h-4 w-4 rounded-full bg-cream transition-all ${
+        className={`absolute top-[3px] h-4 w-4 rounded-full bg-paper transition-all ${
           checked ? 'left-[18px]' : 'left-[3px]'
         }`}
       />
@@ -127,7 +127,7 @@ const TONES = [
 ]
 
 const inputCls =
-  'rounded-[10px] border border-hairline bg-raised px-3 py-1.5 text-[13px] text-cream focus:border-[#3a3028] focus:outline-none'
+  'rounded-[10px] border border-hairline bg-raised px-3 py-1.5 text-[13px] text-ink focus:border-verdant focus:outline-none'
 
 function GroqKey({ isSet, onSave }: { isSet: boolean; onSave: (key: string) => void }) {
   const [draft, setDraft] = useState('')
@@ -191,7 +191,7 @@ function ToneProfiles({
             <Select value={tone} options={TONES} onChange={(v) => onChange({ ...profiles, [app]: v })} />
             <button
               onClick={() => remove(app)}
-              className="rounded-[10px] border border-hairline px-2.5 py-1.5 text-[12px] text-muted transition-colors hover:bg-raised hover:text-coral"
+              className="rounded-[10px] border border-hairline px-2.5 py-1.5 text-[12px] text-muted transition-colors hover:bg-raised hover:text-ember"
             >
               Remove
             </button>
@@ -243,7 +243,7 @@ export function Settings() {
     <div className="flex flex-col gap-5 pb-4">
       <Section title="DICTATION">
         <Row label="Push-to-talk">
-          <span className="rounded-lg border border-hairline bg-raised px-3 py-1.5 text-[12.5px] font-medium tracking-wide text-amber">
+          <span className="rounded-lg border border-hairline bg-raised px-3 py-1.5 text-[12.5px] font-medium tracking-wide text-verdant">
             {boot.hotkey_pretty}
           </span>
           <button
@@ -370,7 +370,7 @@ export function Settings() {
             step={0.5}
             value={boot.pill_linger_s}
             onChange={(e) => set('pill_linger_s', Number(e.target.value))}
-            className="w-20 rounded-[10px] border border-hairline bg-raised px-3 py-1.5 text-right text-[13px] text-cream focus:border-[#3a3028] focus:outline-none"
+            className="w-20 rounded-[10px] border border-hairline bg-raised px-3 py-1.5 text-right text-[13px] text-ink focus:border-verdant focus:outline-none"
           />
           <span className="text-[12.5px] text-muted">s</span>
         </Row>
