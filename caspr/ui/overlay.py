@@ -26,7 +26,7 @@ class Waveform(QWidget):
     """Scrolling mic-level bars; a traveling shimmer in processing mode."""
 
     BARS = 24
-    GAIN = 2.2  # RMS levels are small; scale into the visible range
+    GAIN = 1.3  # meter_level() now applies its own compression; less extra gain needed
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -68,8 +68,8 @@ class Waveform(QWidget):
         else:
             for i, target in enumerate(self._levels):
                 shown = self._display[i]
-                # rise instantly, fall smoothly
-                self._display[i] = target if target > shown else shown + (target - shown) * 0.35
+                # rise instantly, fall smoothly (but snappier than before)
+                self._display[i] = target if target > shown else shown + (target - shown) * 0.55
         self.update()
 
     def paintEvent(self, _event) -> None:
@@ -120,7 +120,7 @@ class Pill(QWidget):
         self._label.setTextFormat(Qt.TextFormat.RichText)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(22 + _SHADOW, 10 + _SHADOW, 22 + _SHADOW, 10 + _SHADOW)
+        layout.setContentsMargins(20 + _SHADOW, 6 + _SHADOW, 20 + _SHADOW, 6 + _SHADOW)
         layout.setSpacing(10)
         layout.addWidget(self._glyph)
         layout.addWidget(self._wave)
