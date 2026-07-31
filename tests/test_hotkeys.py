@@ -1,4 +1,4 @@
-from caspr.hotkeys import ChordRecorder, PushToTalk, canonical_key, parse_chord
+from caspr.hotkeys import ChordRecorder, ClickHoldGesture, PushToTalk, canonical_key, parse_chord
 
 
 def test_parse_chord_splits_and_normalizes():
@@ -107,3 +107,52 @@ def test_recorder_held_reports_live_keys_in_order():
     r.feed("down", "right windows")
     r.feed("down", "ctrl")
     assert r.held == ["ctrl", "windows"]
+
+
+def _click_gesture():
+    events = []
+    g = ClickHoldGesture(
+        start=lambda: events.append("start"), commit=lambda: events.append("commit")
+    )
+    return g, events
+
+
+def test_hold_commits_on_release_after_hold_min():
+    g, events = _click_gesture()
+    g.press(0.0)
+    assert events == ["start"]
+    g.release(0.30)  # >= 0.25 default hold_min
+    assert events == ["start", "commit"]
+
+
+def test_quick_click_leaves_session_open():
+    g, events = _click_gesture()
+    g.press(0.0)
+    g.release(0.10)  # < hold_min
+    assert events == ["start"]  # no commit -- stays recording
+
+
+def test_second_press_of_any_length_closes_open_session():
+    g, events = _click_gesture()
+    g.press(0.0)
+    g.release(0.10)  # opens the session
+    g.press(5.0)  # any later press closes it immediately, on press
+    assert events == ["start", "commit"]
+    g.release(5.05)  # the stop-click's own release is a no-op
+    assert events == ["start", "commit"]
+
+
+def test_hold_min_boundary_exactly_at_threshold_commits():
+    g, events = _click_gesture()
+    g.press(0.0)
+    g.release(0.25)  # exactly hold_min: >= means "commit now"
+    assert events == ["start", "commit"]
+
+
+def test_extra_press_while_already_pressed_is_ignored():
+    g, events = _click_gesture()
+    g.press(0.0)
+    g.press(0.05)  # stray extra down event while already pressed
+    assert events == ["start"]
+    g.release(0.30)
+    assert events == ["start", "commit"]

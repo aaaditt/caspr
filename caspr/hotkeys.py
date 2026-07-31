@@ -236,3 +236,42 @@ class GestureInterpreter:
         self._start()
         self._press_t = now
         self._state = "pressed_first"
+
+
+class ClickHoldGesture:
+    """Two-mode mouse gesture: hold-to-dictate, or click-to-start/click-to-stop.
+
+    press() begins a session, or -- if a click-started session is already
+    open -- ends it immediately (the stop happens on press, not release, so
+    a stop-click's own duration never matters). release() decides what a
+    session that began on THIS press should do: held >= hold_min_s means a
+    deliberate hold, so it stops now. A quick release leaves the session
+    open; recording continues until the next press.
+    """
+
+    def __init__(self, *, start, commit, hold_min_s: float = 0.25):
+        self._start = start
+        self._commit = commit
+        self._hold_min = hold_min_s
+        self._state = "idle"  # idle | pressed | open
+        self._press_t = 0.0
+
+    def press(self, now: float) -> None:
+        if self._state == "open":
+            self._commit()
+            self._state = "idle"
+            return
+        if self._state == "idle":
+            self._start()
+            self._press_t = now
+            self._state = "pressed"
+        # state == "pressed": stray extra down event (e.g. auto-repeat) -- ignore
+
+    def release(self, now: float) -> None:
+        if self._state != "pressed":
+            return  # no matching press-started session to close
+        if now - self._press_t >= self._hold_min:
+            self._commit()
+            self._state = "idle"
+        else:
+            self._state = "open"
