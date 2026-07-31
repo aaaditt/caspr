@@ -1,5 +1,7 @@
-"""The pill: a live waveform while the mic is hot, a shimmer while transcribing,
-then the transcript (with flags) for pill_linger_s. Never takes focus."""
+"""The pill: an idle mini-bar (when pill_always_visible is on) that expands into
+a live waveform while the mic is hot, a shimmer while transcribing, then the
+transcript (with flags) for pill_linger_s before collapsing back to idle.
+Click or click-and-hold to start/stop dictation. Never takes focus."""
 
 from __future__ import annotations
 
@@ -163,13 +165,15 @@ class Pill(QWidget):
         elif state == "error":
             self._show_label(f"<span style='color:{FLAG}'>⚠</span> {html.escape(detail)}")
             self._hide_timer.start(max(self._linger_ms, 2500))
-        elif state == "idle" and self._mode != "idle":
-            # pipeline ended without a transcript (e.g. "didn't catch that") --
-            # nothing else returns the pill to idle in that case, so do it here.
-            if self._cfg.pill_always_visible:
-                self._show_idle()
-            else:
-                self._fade_out()
+        elif state == "idle" and self._mode == "live":
+            # A successful dictation emits state_changed("idle") immediately
+            # before dictation_done (both from the worker thread, in that
+            # order) -- defer one event-loop turn so an already-queued
+            # dictation_done/show_transcript call wins the race and this
+            # becomes a no-op. Only a pipeline that ends with no transcript
+            # ("didn't catch that") still finds self._mode == "live" when
+            # the deferred check actually runs.
+            QTimer.singleShot(0, self._return_to_idle)
 
     def set_level(self, level: float) -> None:
         self._wave.push_level(level)
@@ -204,8 +208,17 @@ class Pill(QWidget):
         self._reposition()
         self._fade_in()
 
+    def _return_to_idle(self) -> None:
+        if self._mode != "live":
+            return
+        if self._cfg.pill_always_visible:
+            self._show_idle()
+        else:
+            self._fade_out()
+
     def _show_idle(self) -> None:
         self._mode = "idle"
+        self._text = ""
         self._hide_timer.stop()
         self._glyph.hide()
         self._wave.hide()
@@ -324,12 +337,15 @@ class Pill(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, _event) -> None:
-        if self._mode == "label":
-            self.hide()
+        if self._mode == "label" and self._text:
+            if self._cfg.pill_always_visible:
+                self._show_idle()
+            else:
+                self.hide()
             self.expand_requested.emit(self._text)
         else:
             self._click_gesture.press(time.monotonic())
 
     def mouseReleaseEvent(self, _event) -> None:
-        if self._mode != "label":
+        if not (self._mode == "label" and self._text):
             self._click_gesture.release(time.monotonic())

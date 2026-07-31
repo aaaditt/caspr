@@ -276,7 +276,7 @@ def run_server(cfg: Config, port: int = 18321) -> int:
     from .ui.overlay import Pill
     from .ui.correct import CorrectionPopup
 
-    pill = Pill(cfg)
+    pill = Pill(cfg, controller)
     controller.state_changed.connect(pill.on_state)
     controller.input_level.connect(pill.set_level)
     controller.dictation_done.connect(pill.show_transcript)
