@@ -35,6 +35,7 @@ export interface Bootstrap {
   injection: string
   pill_linger_s: number
   sound_cues: boolean
+  pill_always_visible: boolean
   cleanup_enabled: boolean
   groq_api_key_set: boolean
   groq_model: string

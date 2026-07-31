@@ -377,6 +377,12 @@ export function Settings() {
         <Row label="Sound cues">
           <Toggle checked={boot.sound_cues} onChange={(on) => set('sound_cues', on)} />
         </Row>
+        <Row label="Always show the recording bar" note="a small bar stays on screen even when idle">
+          <Toggle
+            checked={boot.pill_always_visible}
+            onChange={(on) => set('pill_always_visible', on)}
+          />
+        </Row>
       </Section>
 
       <Section title="SYSTEM">

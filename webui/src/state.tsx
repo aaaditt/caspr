@@ -22,6 +22,7 @@ const MOCK_BOOT: Bootstrap = {
   injection: 'type',
   pill_linger_s: 6,
   sound_cues: true,
+  pill_always_visible: true,
   cleanup_enabled: true,
   groq_api_key_set: false,
   groq_model: 'llama-3.1-8b-instant',
