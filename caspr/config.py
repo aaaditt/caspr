@@ -26,6 +26,7 @@ class Config:
     flag_zipf_threshold: float = 3.0  # words rarer than this get flagged in the UI
     pill_linger_s: float = 6.0  # 0 disables the post-dictation pill
     sound_cues: bool = True  # soft ticks on record start/stop
+    pill_always_visible: bool = True  # idle mini-bar shown even when not recording
     # Optional secondary hotkeys (empty = disabled)
     hotkey_toggle_dictation: str = ""
     hotkey_cancel_dictation: str = ""

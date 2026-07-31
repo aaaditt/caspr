@@ -16,6 +16,7 @@ from caspr.ui.bridge_data import (
 BOOT_KEYS = {
     "user", "state", "paused", "hotkey", "hotkey_pretty", "model", "device",
     "engine", "language", "injection", "pill_linger_s", "sound_cues",
+    "pill_always_visible",
     "input_device", "mics", "startup", "stats", "recent",
     "hotkey_toggle_dictation", "hotkey_toggle_dictation_pretty",
     "hotkey_cancel_dictation", "hotkey_cancel_dictation_pretty",
@@ -253,5 +254,27 @@ def test_bootstrap_exposes_cleanup_without_leaking_key(tmp_path):
         assert boot["handsfree_double_tap"] is True
         assert boot["double_tap_ms"] == 400
         assert boot["tone_profiles"] == {}
+    finally:
+        controller.shutdown()
+
+
+def test_apply_setting_pill_always_visible_persists(tmp_path, monkeypatch):
+    c, calls = _controller(tmp_path, monkeypatch)
+    try:
+        assert apply_setting(c, "pill_always_visible", False) == ""
+        assert c.cfg.pill_always_visible is False
+        assert load_config(tmp_path / "cfg.json").pill_always_visible is False
+        assert calls == []
+    finally:
+        c.shutdown()
+
+
+def test_bootstrap_exposes_pill_always_visible_default_true(tmp_path):
+    controller = AppController(
+        Config(), config_path=tmp_path / "cfg.json", history_path=tmp_path / "h.db"
+    )
+    try:
+        boot = bootstrap(controller)
+        assert boot["pill_always_visible"] is True
     finally:
         controller.shutdown()

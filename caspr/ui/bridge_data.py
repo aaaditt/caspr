@@ -20,6 +20,7 @@ _SETTING_KEYS = {
     "injection",
     "pill_linger_s",
     "sound_cues",
+    "pill_always_visible",
     "input_device",
     "hotkey",
     "hotkey_toggle_dictation",
@@ -63,7 +64,7 @@ def apply_setting(controller, key: str, value) -> str:
         value = None if value is None else int(value)
     elif key == "pill_linger_s":
         value = float(value)
-    elif key in ("sound_cues", "cleanup_enabled", "handsfree_double_tap", "smart_correct"):
+    elif key in ("sound_cues", "pill_always_visible", "cleanup_enabled", "handsfree_double_tap", "smart_correct"):
         value = bool(value)
     elif key == "groq_api_key":
         value = str(value).strip()
@@ -161,6 +162,7 @@ def bootstrap(controller) -> dict:
         "injection": cfg.injection,
         "pill_linger_s": cfg.pill_linger_s,
         "sound_cues": cfg.sound_cues,
+        "pill_always_visible": cfg.pill_always_visible,
         "cleanup_enabled": cfg.cleanup_enabled,
         "groq_api_key_set": bool(cfg.groq_api_key.strip()),  # never echo the secret
         "groq_model": cfg.groq_model,
