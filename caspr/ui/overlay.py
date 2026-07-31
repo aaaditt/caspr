@@ -13,12 +13,18 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from ..hotkeys import ClickHoldGesture, pretty_chord
 from .icons import glyph_icon
-from .style import ACCENT, CORAL, FG, FLAG, HAIRLINE, SURFACE, flagged_html
+from .style import ACCENT, CORAL, FG, FLAG, HAIRLINE, MUTED, SURFACE, flagged_html
 
 FADES_ENABLED = True  # kill switch: opacity animation on translucent windows
 _SHADOW = 10  # transparent margin around the capsule for the painted shadow
 _BOTTOM_GAP = 16  # raw gap; visual gap is this + _SHADOW
+_IDLE_W = 56  # idle mini-bar width, not hovering
+_IDLE_HOVER_W = 64  # idle mini-bar width, hovering
+_IDLE_H = 5  # idle mini-bar height (fixed, doesn't change on hover)
+_IDLE_GAP = 8  # gap from screen bottom edge for the idle bar (vs _BOTTOM_GAP for the oval)
+_QWIDGETSIZE_MAX = 16777215  # Qt's internal max widget dimension, for un-fixing a size
 _MIC_GLYPH = ""  # Segoe Fluent/MDL2 "Microphone"
 
 
@@ -97,7 +103,7 @@ class Waveform(QWidget):
 class Pill(QWidget):
     expand_requested = Signal(str)
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, controller):
         super().__init__(
             None,
             Qt.WindowType.FramelessWindowHint
@@ -107,9 +113,14 @@ class Pill(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self._cfg = cfg  # read pill_linger_s live so Settings changes apply instantly
+        self._cfg = cfg  # read pill_linger_s/pill_always_visible live, Settings changes apply instantly
         self._text = ""
         self._hiding = False
+        self._mode = "idle"  # idle | live | label
+        self._hovering = False
+        self._click_gesture = ClickHoldGesture(
+            start=controller.on_mouse_press, commit=controller.on_mouse_release
+        )
 
         self._glyph = QLabel()
         self._glyph.setPixmap(glyph_icon(_MIC_GLYPH, ACCENT, 16).pixmap(16, 16))
@@ -132,6 +143,9 @@ class Pill(QWidget):
         self._fade = QPropertyAnimation(self, b"windowOpacity", self)
         self._fade.finished.connect(self._after_fade)
 
+        if cfg.pill_always_visible:
+            self._show_idle()
+
     @property
     def _linger_ms(self) -> int:
         return int(self._cfg.pill_linger_s * 1000)
@@ -149,6 +163,13 @@ class Pill(QWidget):
         elif state == "error":
             self._show_label(f"<span style='color:{FLAG}'>⚠</span> {html.escape(detail)}")
             self._hide_timer.start(max(self._linger_ms, 2500))
+        elif state == "idle" and self._mode != "idle":
+            # pipeline ended without a transcript (e.g. "didn't catch that") --
+            # nothing else returns the pill to idle in that case, so do it here.
+            if self._cfg.pill_always_visible:
+                self._show_idle()
+            else:
+                self._fade_out()
 
     def set_level(self, level: float) -> None:
         self._wave.push_level(level)
@@ -165,21 +186,47 @@ class Pill(QWidget):
 
     def _show_live(self) -> None:
         """Fixed-size glyph + waveform; geometry set once, no per-tick jumps."""
+        self._mode = "live"
         self._hide_timer.stop()
+        self._glyph.show()
         self._label.hide()
         self._wave.show()
         self._reposition()
         self._fade_in()
 
     def _show_label(self, html_text: str) -> None:
+        self._mode = "label"
         self._hide_timer.stop()
+        self._glyph.show()
         self._wave.hide()
         self._label.setText(html_text)
         self._label.show()
         self._reposition()
         self._fade_in()
 
+    def _show_idle(self) -> None:
+        self._mode = "idle"
+        self._hide_timer.stop()
+        self._glyph.hide()
+        self._wave.hide()
+        self._label.hide()
+        self.setFixedSize(_IDLE_HOVER_W + 2 * _SHADOW, _IDLE_H + 2 * _SHADOW)
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.move(
+            screen.center().x() - self.width() // 2,
+            screen.bottom() - self.height() - _IDLE_GAP,
+        )
+        self.setToolTip(f"Click or hold to talk — {pretty_chord(self._cfg.hotkey)} works anywhere")
+        self._fade_in()
+
+    def _unlock_size(self) -> None:
+        """Release the idle mode's setFixedSize() constraint so adjustSize()
+        can grow the widget again for live/label mode."""
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(_QWIDGETSIZE_MAX, _QWIDGETSIZE_MAX)
+
     def _reposition(self) -> None:
+        self._unlock_size()
         self._label.setMaximumWidth(560)
         self._label.setWordWrap(True)
         self.adjustSize()
@@ -224,8 +271,11 @@ class Pill(QWidget):
     def _after_fade(self) -> None:
         if self._hiding:
             self._hiding = False
-            self.hide()
             self.setWindowOpacity(1.0)
+            if self._cfg.pill_always_visible:
+                self._show_idle()
+            else:
+                self.hide()
 
     # -- painting -----------------------------------------------------------
 
@@ -233,6 +283,21 @@ class Pill(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
+        if self._mode == "idle":
+            self._paint_idle(painter)
+        else:
+            self._paint_oval(painter)
+
+    def _paint_idle(self, painter: QPainter) -> None:
+        w = _IDLE_HOVER_W if self._hovering else _IDLE_W
+        color = QColor(FG if self._hovering else MUTED)
+        color.setAlphaF(0.85 if self._hovering else 0.55)
+        painter.setBrush(color)
+        x = (self.width() - w) / 2
+        y = (self.height() - _IDLE_H) / 2
+        painter.drawRoundedRect(QRectF(x, y, w, _IDLE_H), _IDLE_H / 2, _IDLE_H / 2)
+
+    def _paint_oval(self, painter: QPainter) -> None:
         body = QRectF(self.rect()).adjusted(_SHADOW, _SHADOW, -_SHADOW, -_SHADOW)
         # painted penumbra — QGraphicsDropShadowEffect is unreliable on
         # translucent top-level windows, so fake it with layered rects
@@ -246,7 +311,25 @@ class Pill(QWidget):
         painter.setPen(QColor(HAIRLINE))
         painter.drawRoundedRect(body, body.height() / 2, body.height() / 2)
 
+    def enterEvent(self, event) -> None:
+        if self._mode == "idle":
+            self._hovering = True
+            self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        if self._mode == "idle":
+            self._hovering = False
+            self.update()
+        super().leaveEvent(event)
+
     def mousePressEvent(self, _event) -> None:
-        if self._text:
+        if self._mode == "label":
             self.hide()
             self.expand_requested.emit(self._text)
+        else:
+            self._click_gesture.press(time.monotonic())
+
+    def mouseReleaseEvent(self, _event) -> None:
+        if self._mode != "label":
+            self._click_gesture.release(time.monotonic())

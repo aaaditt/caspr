@@ -160,7 +160,7 @@ def main() -> int:
             lambda: (server.nextPendingConnection(), window.surface())
         )
 
-        pill = Pill(cfg)
+        pill = Pill(cfg, controller)
         controller.state_changed.connect(pill.on_state)
         controller.input_level.connect(pill.set_level)
         controller.dictation_done.connect(pill.show_transcript)
