@@ -160,6 +160,16 @@ class AppController(QObject):
         else:
             self._commit_recording()
 
+    def on_mouse_press(self) -> None:
+        """Entry point for the pill's mouse gesture -- always the plain hold
+        primitive, never routed through the keyboard's GestureInterpreter
+        (mixing the two input devices into one gesture tracker risks a
+        keyboard tap and a mouse click misfiring as a false double-tap)."""
+        self._begin_recording()
+
+    def on_mouse_release(self) -> None:
+        self._commit_recording()
+
     def _begin_recording(self) -> None:
         with self._lock:
             if self._state != "idle" or self.paused:

@@ -82,3 +82,19 @@ def test_open_history_emits_signal(controller):
     controller.open_history_requested.connect(lambda: seen.append(True))
     controller.open_history()
     assert seen == [True]
+
+
+def test_on_mouse_press_begins_recording(controller):
+    controller._state = "idle"
+    controller.on_mouse_press()
+    assert controller.state == "recording"
+    assert controller._recorder.started == 1
+
+
+def test_on_mouse_release_commits_recording(controller, monkeypatch):
+    subs = []
+    monkeypatch.setattr(controller, "_pipeline", lambda audio: subs.append(audio))
+    controller._state = "idle"
+    controller.on_mouse_press()
+    controller.on_mouse_release()
+    assert len(subs) == 1
