@@ -37,11 +37,17 @@ def list_input_devices() -> list[tuple[int, str]]:
 
 
 def meter_level(block: np.ndarray) -> float:
-    """Map an audio block to a 0..1 level for the UI meter (full-scale sine ≈ 1.0)."""
+    """Map an audio block to a 0..1 level for the UI meter (full-scale sine ≈ 1.0).
+
+    Power-law compressed (sqrt) so normal speaking volume -- quiet relative
+    to full-scale -- still visibly moves the meter, while loud input still
+    caps at 1.0. Feeds both the pill's waveform and the webui's live meter.
+    """
     if block.size == 0:
         return 0.0
     rms = float(np.sqrt(np.mean(np.square(block, dtype=np.float64))))
-    return min(1.0, rms * np.sqrt(2.0))
+    level = min(1.0, rms * np.sqrt(2.0))
+    return level ** 0.5
 
 
 class Recorder:

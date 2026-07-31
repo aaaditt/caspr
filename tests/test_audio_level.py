@@ -24,3 +24,12 @@ def test_quiet_signal_between_zero_and_loud():
 def test_clipped_signal_capped_at_one():
     block = np.full(1600, 2.0, dtype=np.float32)  # beyond full scale
     assert meter_level(block) == 1.0
+
+
+def test_quiet_signal_boosted_above_old_linear_value():
+    t = np.linspace(0, 1, 16000, dtype=np.float32)
+    quiet = (np.sin(2 * np.pi * 440 * t) * 0.05).astype(np.float32)
+    old_linear_level = min(
+        1.0, float(np.sqrt(np.mean(np.square(quiet, dtype=np.float64)))) * np.sqrt(2.0)
+    )
+    assert meter_level(quiet) > old_linear_level
